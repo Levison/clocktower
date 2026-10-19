@@ -19,3 +19,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Local lobby process id written by lobby-host.sh
+.lobby.pid
+
