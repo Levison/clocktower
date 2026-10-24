@@ -258,6 +258,62 @@
           "Dead"
         ]
       }
+    ],
+    "Travellers": [
+      {
+        "id": "bureaucrat",
+        "name": "Bureaucrat",
+        "description": "Each night, choose a player (not yourself): their vote counts as 3 votes tomorrow.",
+        "firstNight": 1,
+        "otherNight": 1,
+        "firstNightReminder": "The Bureaucrat points to a player. Put the Bureaucrat's '3 votes' reminder by the chosen player's character token.",
+        "otherNightReminder": "The Bureaucrat points to a player. Put the Bureaucrat's '3 votes' reminder by the chosen player's character token.",
+        "reminders": [
+          "3 votes"
+        ]
+      },
+      {
+        "id": "thief",
+        "name": "Thief",
+        "description": "Each night, choose a player (not yourself): their vote counts negatively tomorrow.",
+        "firstNight": 1,
+        "otherNight": 1,
+        "firstNightReminder": "The Thief points to a player. Put the Thief's 'Negative vote' reminder by the chosen player's character token.",
+        "otherNightReminder": "The Thief points to a player. Put the Thief's 'Negative vote' reminder by the chosen player's character token.",
+        "reminders": [
+          "Negative vote"
+        ]
+      },
+      {
+        "id": "gunslinger",
+        "name": "Gunslinger",
+        "description": "Each day, after the 1st vote has been tallied, you may choose a player that voted: they die.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "scapegoat",
+        "name": "Scapegoat",
+        "description": "If a player of your alignment is executed, you might be executed instead.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "beggar",
+        "name": "Beggar",
+        "description": "You must use a vote token to vote. Dead players may choose to give you theirs. If so, you learn their alignment. You are sober & healthy.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      }
     ]
   }
 }

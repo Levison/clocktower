@@ -102,6 +102,7 @@
         <button id="gong-btn" class="gong-btn hidden" title="Ring the Gong">🔔</button>
         <button id="settings-btn" class="settings-btn hidden" title="Settings">⚙️</button>
       </div>
+      <div id="fabled-strip" class="fabled-strip hidden"></div>
 
       <!-- Your Role Display (for non-host players) -->
       <div id="my-role-section" class="my-role-section hidden">
@@ -229,6 +230,26 @@
               <!-- Roles will be inserted here -->
             </div>
           </div>
+
+          <div class="almanac-category-section">
+            <div class="almanac-category-header Travellers">
+              <span class="category-icon">🧳</span>
+              <span class="category-name">Travellers</span>
+              <span class="category-description">Extra players who do not change the character count</span>
+            </div>
+            <div class="almanac-role-list" id="almanac-Travellers">
+            </div>
+          </div>
+
+          <div class="almanac-category-section">
+            <div class="almanac-category-header Fabled">
+              <span class="category-icon">📜</span>
+              <span class="category-name">Fabled</span>
+              <span class="category-description">Storyteller tokens. They are not dealt to a player</span>
+            </div>
+            <div class="almanac-role-list" id="almanac-Fabled">
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -318,6 +339,28 @@
               <!-- Roles will be inserted here -->
             </div>
           </div>
+
+          <div class="role-category-section">
+            <div class="category-header Travellers" data-category="Travellers">
+              <span class="category-icon">🧳</span>
+              <span class="category-name">Travellers</span>
+              <span class="category-counts"><span class="category-count" id="count-Travellers">0</span><span class="category-ref hidden" id="ref-Travellers"></span></span>
+              <span class="expand-icon">▼</span>
+            </div>
+            <div class="role-list" id="roles-Travellers">
+            </div>
+          </div>
+
+          <div class="role-category-section">
+            <div class="category-header Fabled" data-category="Fabled">
+              <span class="category-icon">📜</span>
+              <span class="category-name">Fabled</span>
+              <span class="category-counts"><span class="category-count" id="count-Fabled">0</span></span>
+              <span class="expand-icon">▼</span>
+            </div>
+            <div class="role-list" id="roles-Fabled">
+            </div>
+          </div>
         </div>
       </div>
       
@@ -327,6 +370,7 @@
           <button type="button" class="choice-btn" data-choice="plus">+1 Outsider</button>
           <button type="button" class="choice-btn" data-choice="minus">-1 Outsider</button>
         </div>
+        <div id="traveller-alignments" class="traveller-alignments hidden"></div>
         <div id="bag-notes" class="bag-notes"></div>
         <details id="night-preview" class="night-preview">
           <summary>Night sheet for this bag</summary>

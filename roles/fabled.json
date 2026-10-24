@@ -1,0 +1,118 @@
+{
+  "Role Set": "Fabled",
+  "Kind": "fabled",
+  "Roles": {
+    "Fabled": [
+      {
+        "id": "doomsayer",
+        "name": "Doomsayer",
+        "description": "If 4 or more players live, each living player may publicly choose (once per game) that a player of their own alignment dies.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "angel",
+        "name": "Angel",
+        "description": "Something bad might happen to whoever is most responsible for the death of a new player.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "buddhist",
+        "name": "Buddhist",
+        "description": "For the first 2 minutes of each day, veteran players may not talk.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "hellslibrarian",
+        "name": "Hell's Librarian",
+        "description": "Something bad might happen to whoever talks when the Storyteller is talking, or talks too much.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "revolutionary",
+        "name": "Revolutionary",
+        "description": "2 neighboring players are known to be the same alignment. Once per game, one of them is drunk until dusk.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": ["Drunk"]
+      },
+      {
+        "id": "fiddler",
+        "name": "Fiddler",
+        "description": "Once per game, the Demon secretly chooses an opposing player: all players vote on which of those 2 players dies. The chosen player's team loses.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "toymaker",
+        "name": "Toymaker",
+        "description": "The Demon may choose not to wake. If they don't, a good player dies. There is 1 extra bluff.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "fibbin",
+        "name": "Fibbin",
+        "description": "Once per game, 1 good player might get false information.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "duchess",
+        "name": "Duchess",
+        "description": "Each day, 3 players may visit you. At night*, each visitor learns how many visitors are evil, but 1 gets false info.",
+        "firstNight": 0,
+        "otherNight": 90,
+        "firstNightReminder": "",
+        "otherNightReminder": "Wake each visitor. Tell each how many visitors are evil, but give one of them false information.",
+        "reminders": []
+      },
+      {
+        "id": "sentinel",
+        "name": "Sentinel",
+        "description": "There might be 1 extra or 1 fewer Outsider in play.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "spiritofivory",
+        "name": "Spirit of Ivory",
+        "description": "There can't be more than 1 extra evil player.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      }
+    ]
+  }
+}

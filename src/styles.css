@@ -1055,6 +1055,18 @@ h1 {
   border: 1px solid #5a2d2d;
 }
 
+.role-category.Travellers {
+  background: linear-gradient(135deg, #1a2a4a 0%, #0d1a2d 100%);
+  color: #8eb4ff;
+  border: 1px solid #2d3d5a;
+}
+
+.role-category.Fabled {
+  background: linear-gradient(135deg, #4a3d1a 0%, #2d250d 100%);
+  color: #e6c36a;
+  border: 1px solid #5a4a2d;
+}
+
 .role-category.Spectator {
   background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
   color: #aaa;
@@ -1284,6 +1296,16 @@ h1 {
 .grimoire-role.Demons .role-category-tag {
   background: rgba(170, 68, 68, 0.3);
   color: #ff6b6b;
+}
+
+.grimoire-role.Travellers .role-category-tag {
+  background: rgba(68, 110, 170, 0.3);
+  color: #8eb4ff;
+}
+
+.grimoire-role.Fabled .role-category-tag {
+  background: rgba(196, 163, 90, 0.3);
+  color: #e6c36a;
 }
 
 .grimoire-role.Spectator .role-category-tag {
@@ -1536,6 +1558,14 @@ h1 {
 
 .category-header.Demons {
   border-left: 4px solid #a44;
+}
+
+.category-header.Travellers {
+  border-left: 4px solid #47a;
+}
+
+.category-header.Fabled {
+  border-left: 4px solid #c4a35a;
 }
 
 .category-icon {
@@ -3171,6 +3201,16 @@ h1 {
   border-left: 5px solid #a44;
 }
 
+.almanac-category-header.Travellers {
+  background: linear-gradient(135deg, rgba(68, 110, 170, 0.25) 0%, rgba(68, 110, 170, 0.1) 100%);
+  border-left: 5px solid #47a;
+}
+
+.almanac-category-header.Fabled {
+  background: linear-gradient(135deg, rgba(196, 163, 90, 0.25) 0%, rgba(196, 163, 90, 0.1) 100%);
+  border-left: 5px solid #c4a35a;
+}
+
 .almanac-category-header .category-icon {
   font-size: 1.3rem;
 }
@@ -3224,6 +3264,18 @@ h1 {
 
 .almanac-role-item.Demons {
   border-left-color: #a44;
+}
+
+.almanac-role-item.Travellers {
+  border-left-color: #47a;
+}
+
+.almanac-role-item.Fabled {
+  border-left-color: #c4a35a;
+}
+
+.almanac-role-item.in-play .role-name {
+  color: var(--gold);
 }
 
 .almanac-role-item .role-name {
@@ -5214,6 +5266,50 @@ h1 {
 .choice-btn.selected {
   border-color: var(--gold);
   color: var(--gold);
+}
+
+.fabled-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 16px 0;
+}
+
+.fabled-label,
+.fabled-chip {
+  font-family: 'Hack', monospace;
+  font-size: 0.8rem;
+}
+
+.fabled-label {
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.fabled-chip {
+  color: var(--bone);
+  border: 1px solid #c4a35a;
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.traveller-alignments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.traveller-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--bone);
+  font-family: 'Hack', monospace;
+  font-size: 0.85rem;
 }
 
 .night-preview,

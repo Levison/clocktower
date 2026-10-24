@@ -52,12 +52,22 @@ const emojis = fs.readFileSync(path.join(__dirname, 'animal_emojis.txt'), 'utf-8
 
 // Load all role sets from the roles/ folder
 const roleSets = {};
+const fabled = [];
+const fabledById = new Map();
 const rolesDir = path.join(__dirname, 'roles');
 const roleFiles = fs.readdirSync(rolesDir).filter(f => f.endsWith('.json'));
 
 for (const file of roleFiles) {
   const setId = file.replace('.json', '');
   const data = JSON.parse(fs.readFileSync(path.join(rolesDir, file), 'utf-8'));
+  if (data.Kind === 'fabled') {
+    for (const role of (data.Roles && data.Roles.Fabled) || []) {
+      const entry = { ...role, category: 'Fabled' };
+      fabled.push(entry);
+      fabledById.set(entry.id, entry);
+    }
+    continue;
+  }
   roleSets[setId] = {
     id: setId,
     name: data['Role Set'] || setId,
@@ -128,18 +138,33 @@ function nonHostIds(room) {
   return room.players.filter(id => id !== room.hostId);
 }
 
+function syncTravellerAlignments(room) {
+  const next = {};
+  for (const role of room.selectedRoles || []) {
+    if (role.category !== 'Travellers') continue;
+    next[role.id] = room.travellerAlignments && room.travellerAlignments[role.id] === 'evil' ? 'evil' : 'good';
+  }
+  room.travellerAlignments = next;
+}
+
 function bagState(room) {
   const bag = room.selectedRoles || [];
+  const inPlayFabled = room.fabled || [];
   const check = setup.validateBag({
     playerCount: nonHostIds(room).length,
     script: scriptList(room),
     bag,
-    godfatherChoice: room.godfatherChoice || 'plus'
+    godfatherChoice: room.godfatherChoice || 'plus',
+    fabled: inPlayFabled
   });
   return {
     ...check,
     godfatherChoice: room.godfatherChoice || 'plus',
-    nightSheet: setup.previewNightSheet(bag)
+    travellerAlignments: room.travellerAlignments || {},
+    nightSheet: setup.previewNightSheet(bag, {
+      fabled: inPlayFabled,
+      travellerAlignments: room.travellerAlignments || {}
+    })
   };
 }
 
@@ -151,11 +176,13 @@ function viewRoom(room, requesterId) {
     createdAt: room.createdAt,
     rolesAssigned: !!room.rolesAssigned,
     roleSet: room.roleSet,
-    roleSetName: scenarioName(room)
+    roleSetName: scenarioName(room),
+    fabled: (room.fabled || []).map(setup.card)
   };
   if (requesterId === room.hostId) {
     view.selectedRoles = room.selectedRoles || [];
     view.godfatherChoice = room.godfatherChoice || 'plus';
+    view.travellerAlignments = room.travellerAlignments || {};
   }
   return view;
 }
@@ -207,12 +234,14 @@ function dealtNightSheet(code) {
     assignments.push({
       role,
       mask: role.mask || null,
+      alignment: role.alignment || null,
       playerName: player ? (player.username || 'Unknown') : 'Unknown'
     });
   }
   return setup.nightSheet(assignments, {
     bluffs: room.bluffs || [],
-    lunaticBluffs: room.lunaticBluffs || []
+    lunaticBluffs: room.lunaticBluffs || [],
+    fabled: room.fabled || []
   });
 }
 
@@ -349,7 +378,9 @@ app.post('/api/room/create', (req, res) => {
     godfatherChoice: 'plus',
     bluffs: [],
     lunaticBluffs: [],
-    scenario: null
+    scenario: null,
+    fabled: [],
+    travellerAlignments: {}
   };
   
   rooms.set(roomCode, room);
@@ -470,6 +501,10 @@ app.get('/api/role-sets', (req, res) => {
   res.json(sets);
 });
 
+app.get('/api/fabled', (req, res) => {
+  res.json(fabled.map(setup.card));
+});
+
 // API: Get roles for a specific role set
 app.get('/api/roles/:setId', (req, res) => {
   const setId = req.params.setId;
@@ -573,6 +608,7 @@ app.post('/api/room/:code/role-set', (req, res) => {
   room.roleSet = roleSet;
   room.scenario = null;
   room.selectedRoles = [];
+  syncTravellerAlignments(room);
   if (wasAssigned) {
     clearDeal(code);
     io.to(code).emit('rolesReset');
@@ -614,6 +650,7 @@ app.post('/api/room/:code/selected-roles', (req, res) => {
   const validRoles = resolveBag(selectedRoles, scriptList(room));
   
   room.selectedRoles = validRoles;
+  syncTravellerAlignments(room);
   rooms.set(code, room);
   
   const bag = bagState(room);
@@ -648,7 +685,9 @@ app.post('/api/room/:code/assign-roles', (req, res) => {
     script: scriptList(room),
     bag: room.selectedRoles || [],
     catalog,
-    godfatherChoice: room.godfatherChoice || 'plus'
+    godfatherChoice: room.godfatherChoice || 'plus',
+    travellerAlignments: room.travellerAlignments || {},
+    fabled: room.fabled || []
   });
   
   if (!result.ok) {
@@ -659,7 +698,8 @@ app.post('/api/room/:code/assign-roles', (req, res) => {
   for (const assignment of result.assignments) {
     playerRoles.set(assignment.playerId, {
       ...assignment.role,
-      mask: assignment.mask ? { ...assignment.mask } : null
+      mask: assignment.mask ? { ...assignment.mask } : null,
+      alignment: assignment.alignment || null
     });
   }
   
@@ -693,7 +733,9 @@ app.get('/api/my-role', (req, res) => {
   
   const player = players.get(playerId);
   const room = player && player.roomCode ? rooms.get(player.roomCode) : null;
-  const body = { role: role.mask ? setup.card(role.mask) : setup.card(role) };
+  const hidden = role.id === 'drunk' || role.id === 'lunatic' || role.id === 'apprentice';
+  const body = { role: hidden && role.mask ? setup.card(role.mask) : setup.card(role) };
+  if (role.alignment) body.alignment = role.alignment;
   if (room && role.id === 'lunatic') {
     body.bluffs = (room.lunaticBluffs || []).map(setup.card);
   } else if (room && role.category === 'Demons') {
@@ -747,6 +789,7 @@ app.get('/api/room/:code/grimoire', (req, res) => {
         emoji: player ? player.emoji : '❓',
         role: role ? setup.card(role) : null,
         mask: role && role.mask ? setup.card(role.mask) : null,
+        alignment: role && role.alignment ? role.alignment : null,
         reminders: reminderMap.get(pid) || [],
         isDead: roomDeadPlayers.has(pid),
         isDrunk: roomDrunkPlayers.has(pid)
@@ -759,7 +802,8 @@ app.get('/api/room/:code/grimoire', (req, res) => {
     bluffs: (room.bluffs || []).map(setup.card),
     lunaticBluffs: (room.lunaticBluffs || []).map(setup.card),
     nightSheet: dealtNightSheet(code),
-    reminderTokens: setup.reminderTokens(room.selectedRoles || [])
+    reminderTokens: setup.reminderTokens([...(room.selectedRoles || []), ...(room.fabled || [])]),
+    fabled: (room.fabled || []).map(setup.card)
   });
 });
 
@@ -830,6 +874,7 @@ app.post('/api/room/:code/scenario', (req, res) => {
     roleIds: resolved
   };
   room.selectedRoles = [];
+  syncTravellerAlignments(room);
   if (wasAssigned) {
     clearDeal(code);
     io.to(code).emit('rolesReset');
@@ -851,7 +896,7 @@ app.post('/api/room/:code/scenario', (req, res) => {
 app.post('/api/room/:code/setup', (req, res) => {
   const playerId = req.cookies.playerId;
   const code = req.params.code.toUpperCase();
-  const { godfatherChoice } = req.body || {};
+  const { godfatherChoice, travellerAlignments } = req.body || {};
   
   if (!playerId || !players.has(playerId)) {
     return res.status(401).json({ error: 'Invalid session' });
@@ -864,15 +909,54 @@ app.post('/api/room/:code/setup', (req, res) => {
   if (room.hostId !== playerId) {
     return res.status(403).json({ error: 'Only the host can change settings' });
   }
-  if (godfatherChoice !== 'plus' && godfatherChoice !== 'minus') {
+  const hasGodfather = Object.prototype.hasOwnProperty.call(req.body || {}, 'godfatherChoice');
+  const hasAlignments = travellerAlignments && typeof travellerAlignments === 'object';
+  if (!hasGodfather && !hasAlignments) {
+    return res.status(400).json({ error: 'Nothing to update.' });
+  }
+  if (hasGodfather && godfatherChoice !== 'plus' && godfatherChoice !== 'minus') {
     return res.status(400).json({ error: 'Godfather choice must be plus or minus.' });
   }
-  
-  room.godfatherChoice = godfatherChoice;
+  if (hasGodfather) room.godfatherChoice = godfatherChoice;
+  if (hasAlignments) {
+    const next = { ...(room.travellerAlignments || {}) };
+    for (const [id, value] of Object.entries(travellerAlignments)) {
+      next[id] = value === 'evil' ? 'evil' : 'good';
+    }
+    room.travellerAlignments = next;
+  }
+  syncTravellerAlignments(room);
   rooms.set(code, room);
   const bag = bagState(room);
   emitToPlayer(room.hostId, 'bagUpdated', bag);
   res.json({ bag });
+});
+
+app.post('/api/room/:code/fabled', (req, res) => {
+  const playerId = req.cookies.playerId;
+  const code = req.params.code.toUpperCase();
+  const { roleIds } = req.body || {};
+
+  if (!playerId || !players.has(playerId)) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!rooms.has(code)) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+
+  const room = rooms.get(code);
+  if (room.hostId !== playerId) {
+    return res.status(403).json({ error: 'Only the host can change settings' });
+  }
+
+  const wanted = new Set(Array.isArray(roleIds) ? roleIds : []);
+  room.fabled = fabled.filter(role => wanted.has(role.id));
+  rooms.set(code, room);
+  const cards = room.fabled.map(setup.card);
+  io.to(code).emit('fabledUpdated', cards);
+  const bag = bagState(room);
+  emitToPlayer(room.hostId, 'bagUpdated', bag);
+  res.json({ fabled: cards, bag });
 });
 
 // API: Place or remove a reminder token (host only)
@@ -899,7 +983,7 @@ app.post('/api/room/:code/reminders', (req, res) => {
     return res.status(400).json({ error: 'Player not in the grimoire' });
   }
   
-  const allowed = setup.reminderTokens(room.selectedRoles || []);
+  const allowed = setup.reminderTokens([...(room.selectedRoles || []), ...(room.fabled || [])]);
   if (!allowed.includes(reminder)) {
     return res.status(400).json({ error: 'Unknown reminder token' });
   }

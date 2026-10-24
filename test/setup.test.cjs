@@ -33,9 +33,14 @@ const bmr = flatten(badMoonRising);
 const snv = flatten(sectsAndViolets);
 const catalog = [...tb, ...bmr, ...snv];
 
-assert.equal(tb.length, 22);
-assert.equal(bmr.length, 25);
-assert.equal(snv.length, 25);
+assert.equal(tb.length, 27);
+assert.equal(bmr.length, 30);
+assert.equal(snv.length, 30);
+assert.equal(tb.filter(role => role.category === 'Travellers').length, 5);
+assert.equal(byId(tb, 'beggar').name, 'Beggar');
+assert.equal(byId(bmr, 'apprentice').name, 'Apprentice');
+assert.equal(byId(snv, 'bonecollector').name, 'Bone Collector');
+assert.ok(!catalog.some(role => role.id === 'gangster'));
 assert.equal(byId(tb, 'drunk').remindersGlobal[0], 'Drunk');
 assert.ok(byId(snv, 'fanggu').description.includes('+1 Outsider'));
 assert.ok(byId(snv, 'vigormortis').description.includes('-1 Outsider'));
@@ -204,6 +209,92 @@ assert.ok(byId(snv, 'vigormortis').description.includes('-1 Outsider'));
   const check = setup.validateBag({ playerCount: 6, script: tb, bag, godfatherChoice: 'plus' });
   assert.equal(check.ok, false);
   assert.ok(check.errors.some(error => error.includes('Minions')));
+}
+
+// One Traveller sits outside the 5-player chart, so six seats are 3/0/1/1 plus the Traveller.
+{
+  const bag = [
+    ...tb.filter(role => role.category === 'Townsfolk').slice(0, 3),
+    byId(tb, 'poisoner'),
+    byId(tb, 'imp'),
+    byId(tb, 'beggar')
+  ];
+  const check = setup.validateBag({ playerCount: 6, script: tb, bag, godfatherChoice: 'plus' });
+  assert.equal(check.ok, true, check.errors.join(' '));
+  assert.equal(check.expected.Townsfolk, 3);
+  assert.equal(check.expected.Outsiders, 0);
+  assert.equal(check.counts.Travellers, 1);
+  assert.match(check.summary, /1 Traveller/);
+}
+
+// An evil Apprentice is shown a Minion who is not in the bag.
+{
+  const apprentice = byId(bmr, 'apprentice');
+  const bag = [
+    ...tb.filter(role => role.category === 'Townsfolk').slice(0, 3),
+    byId(tb, 'poisoner'),
+    byId(tb, 'imp'),
+    apprentice
+  ];
+  const dealt = setup.dealRoles({
+    playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+    script: [...tb, apprentice],
+    bag,
+    catalog,
+    godfatherChoice: 'plus',
+    travellerAlignments: { apprentice: 'evil' },
+    rng: () => 0.2
+  });
+  assert.equal(dealt.ok, true, (dealt.errors || []).join(' '));
+  const seat = dealt.assignments.find(entry => entry.role.id === 'apprentice');
+  assert.equal(seat.alignment, 'evil');
+  assert.equal(seat.mask.category, 'Minions');
+  assert.ok(!bag.some(role => role.id === seat.mask.id));
+  assert.ok(dealt.nightSheet.firstNight.some(step => step.name.includes('Apprentice (evil)')));
+}
+
+// Sentinel lets the outsider count move by one. Toymaker adds a fourth bluff.
+{
+  const sentinel = { id: 'sentinel', name: 'Sentinel', category: 'Fabled' };
+  const toymaker = { id: 'toymaker', name: 'Toymaker', category: 'Fabled', description: 'There is 1 extra bluff.' };
+  const shifted = [
+    ...tb.filter(role => role.category === 'Townsfolk').slice(0, 4),
+    byId(tb, 'poisoner'),
+    byId(tb, 'imp')
+  ];
+  const illegal = setup.validateBag({ playerCount: 6, script: tb, bag: shifted, godfatherChoice: 'plus' });
+  assert.equal(illegal.ok, false);
+  const allowed = setup.validateBag({
+    playerCount: 6,
+    script: tb,
+    bag: shifted,
+    godfatherChoice: 'plus',
+    fabled: [sentinel]
+  });
+  assert.equal(allowed.ok, true, allowed.errors.join(' '));
+  assert.equal(allowed.accepted.Outsiders, 0);
+  assert.equal(allowed.accepted.Townsfolk, 4);
+
+  const bag = [
+    byId(tb, 'washerwoman'),
+    byId(tb, 'librarian'),
+    byId(tb, 'chef'),
+    byId(tb, 'drunk'),
+    byId(tb, 'poisoner'),
+    byId(tb, 'imp')
+  ];
+  const dealt = setup.dealRoles({
+    playerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+    script: tb,
+    bag,
+    catalog,
+    godfatherChoice: 'plus',
+    fabled: [toymaker],
+    rng: () => 0.4
+  });
+  assert.equal(dealt.ok, true, (dealt.errors || []).join(' '));
+  assert.equal(dealt.bluffs.length, 4);
+  assert.ok(dealt.nightSheet.firstNight.some(step => step.name === 'Toymaker'));
 }
 
 console.log('setup tests passed');

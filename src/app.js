@@ -30,6 +30,8 @@ const ROLE_DISTRIBUTION = {
   15: { Townsfolk: 9, Outsiders: 2, Minions: 3, Demons: 1 } // 15+ uses same distribution
 };
 
+const BAG_CATEGORIES = ['Townsfolk', 'Outsiders', 'Minions', 'Demons', 'Travellers'];
+
 class ClockTowerApp {
   constructor() {
     this.player = null;
@@ -45,6 +47,9 @@ class ClockTowerApp {
     this.selectedRoles = []; // Currently selected roles for the game
     this.bagCheck = null; // Server bag math for the current script
     this.catalog = null; // All editions, for building a custom scenario
+    this.fabledCatalog = [];
+    this.travellerAlignments = {};
+    this.myAlignment = null;
     this.bluffs = [];
     this.lunaticBluffs = [];
     this.nightSheet = null;
@@ -103,6 +108,7 @@ class ClockTowerApp {
     // Fetch role sets list
     await this.fetchRoleSets();
     await this.fetchCatalog();
+    await this.fetchFabled();
     
     // Fetch default roles data
     await this.fetchRoles();
@@ -142,6 +148,19 @@ class ClockTowerApp {
       if (response.ok) this.catalog = await response.json();
     } catch (error) {
       console.error('Failed to fetch catalog:', error);
+    }
+  }
+
+  async fetchFabled() {
+    try {
+      const response = await fetch('/api/fabled');
+      if (response.ok) {
+        this.fabledCatalog = await response.json();
+        this.renderAlmanac();
+        this.renderFabledSelection();
+      }
+    } catch (error) {
+      console.error('Failed to fetch fabled:', error);
     }
   }
 
@@ -297,6 +316,13 @@ class ClockTowerApp {
 
     this.socket.on('bagUpdated', (bag) => {
       this.applyBagCheck(bag);
+    });
+
+    this.socket.on('fabledUpdated', (fabled) => {
+      if (this.room) this.room.fabled = fabled || [];
+      this.renderFabledStrip();
+      this.renderFabledSelection();
+      this.renderAlmanac();
     });
     
     this.socket.on('rolesDistributed', async () => {
@@ -643,7 +669,7 @@ class ClockTowerApp {
   }
   
   renderRoleSelection() {
-    const categories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
+    const categories = BAG_CATEGORIES;
     
     for (const category of categories) {
       const container = document.getElementById(`roles-${category}`);
@@ -723,8 +749,9 @@ class ClockTowerApp {
   }
   
   updateRoleSelectionUI() {
-    const categories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
-    const counts = { Townsfolk: 0, Outsiders: 0, Minions: 0, Demons: 0 };
+    const categories = BAG_CATEGORIES;
+    const counts = {};
+    for (const category of categories) counts[category] = 0;
     
     // Count selected roles per category
     for (const role of this.selectedRoles) {
@@ -738,7 +765,7 @@ class ClockTowerApp {
       ? this.roomPlayers.filter(p => p.id !== this.room.hostId).length 
       : this.roomPlayers.length;
     const distribution = this.bagCheck
-      ? this.bagCheck.expected
+      ? (this.bagCheck.accepted || this.bagCheck.expected)
       : this.getRoleDistribution(playerCount);
     
     // Update category counts and reference numbers
@@ -746,7 +773,16 @@ class ClockTowerApp {
       const countEl = document.getElementById(`count-${category}`);
       const refEl = document.getElementById(`ref-${category}`);
       
-      if (countEl) {
+      if (category === 'Travellers') {
+        if (countEl) {
+          countEl.textContent = counts[category];
+          countEl.classList.remove('matched', 'mismatched');
+        }
+        if (refEl) {
+          refEl.textContent = counts[category] ? ' extra' : '';
+          refEl.classList.toggle('hidden', counts[category] === 0);
+        }
+      } else if (countEl) {
         countEl.textContent = counts[category];
         
         // Add visual feedback if count matches reference
@@ -769,7 +805,7 @@ class ClockTowerApp {
       }
       
       // Update reference count display
-      if (refEl) {
+      if (category !== 'Travellers' && refEl) {
         if (distribution) {
           refEl.textContent = `/ ${distribution[category]}`;
           refEl.classList.remove('hidden');
@@ -818,11 +854,115 @@ class ClockTowerApp {
 
     this.renderBagNotes();
     this.renderNightPreview();
+    this.renderTravellerAlignments();
+    this.renderFabledSelection();
   }
 
   applyBagCheck(bag) {
     this.bagCheck = bag;
+    if (bag && bag.travellerAlignments) this.travellerAlignments = bag.travellerAlignments;
     this.updateRoleSelectionUI();
+  }
+
+  renderFabledStrip() {
+    const el = document.getElementById('fabled-strip');
+    if (!el) return;
+    const inPlay = (this.room && this.room.fabled) || [];
+    el.classList.toggle('hidden', inPlay.length === 0);
+    el.innerHTML = inPlay.length
+      ? `<span class="fabled-label">Fabled</span>${inPlay.map(role => `<span class="fabled-chip" title="${this.escapeHtml(role.description || '')}">${this.escapeHtml(role.name)}</span>`).join('')}`
+      : '';
+  }
+
+  renderFabledSelection() {
+    const container = document.getElementById('roles-Fabled');
+    const countEl = document.getElementById('count-Fabled');
+    const inPlay = new Set(((this.room && this.room.fabled) || []).map(role => role.id));
+    if (countEl) countEl.textContent = inPlay.size;
+    if (!container) return;
+    if (!this.fabledCatalog.length) {
+      container.innerHTML = '<div class="role-empty">None loaded</div>';
+      return;
+    }
+    container.innerHTML = this.fabledCatalog.map(role => `
+      <div class="role-item ${inPlay.has(role.id) ? 'selected' : ''}" data-fabled-id="${this.escapeHtml(role.id)}">
+        <div class="role-checkbox"></div>
+        <div class="role-details">
+          <div class="role-name">${this.escapeHtml(role.name)}</div>
+          <div class="role-desc">${this.escapeHtml(role.description)}</div>
+        </div>
+      </div>
+    `).join('');
+    container.querySelectorAll('.role-item').forEach(item => {
+      item.addEventListener('click', () => {
+        this.setFabled(item.dataset.fabledId, !item.classList.contains('selected'));
+      });
+    });
+  }
+
+  renderTravellerAlignments() {
+    const el = document.getElementById('traveller-alignments');
+    if (!el) return;
+    const travellers = this.selectedRoles.filter(role => role.category === 'Travellers');
+    el.classList.toggle('hidden', travellers.length === 0);
+    el.innerHTML = travellers.map(role => {
+      const alignment = (this.travellerAlignments && this.travellerAlignments[role.id]) || 'good';
+      return `
+        <div class="traveller-row">
+          <span>${this.escapeHtml(role.name)}</span>
+          <button type="button" class="choice-btn ${alignment === 'good' ? 'selected' : ''}" data-role-id="${this.escapeHtml(role.id)}" data-alignment="good">Good</button>
+          <button type="button" class="choice-btn ${alignment === 'evil' ? 'selected' : ''}" data-role-id="${this.escapeHtml(role.id)}" data-alignment="evil">Evil</button>
+        </div>
+      `;
+    }).join('');
+    el.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => this.setTravellerAlignment(btn.dataset.roleId, btn.dataset.alignment));
+    });
+  }
+
+  async setTravellerAlignment(roleId, alignment) {
+    if (!this.player || !this.player.isHost || !this.room) return;
+    this.travellerAlignments = { ...(this.travellerAlignments || {}), [roleId]: alignment };
+    this.renderTravellerAlignments();
+    try {
+      const response = await fetch(`/api/room/${this.room.code}/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ travellerAlignments: { [roleId]: alignment } })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.bag) this.applyBagCheck(data.bag);
+      }
+    } catch (error) {
+      console.error('Failed to set traveller alignment:', error);
+    }
+  }
+
+  async setFabled(roleId, enabled) {
+    if (!this.player || !this.player.isHost || !this.room) return;
+    const current = new Set(((this.room.fabled) || []).map(role => role.id));
+    if (enabled) current.add(roleId);
+    else current.delete(roleId);
+    try {
+      const response = await fetch(`/api/room/${this.room.code}/fabled`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roleIds: [...current] })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        this.showToast(data.error || 'Could not update Fabled', 'error');
+        return;
+      }
+      this.room.fabled = data.fabled || [];
+      this.renderFabledStrip();
+      this.renderAlmanac();
+      if (data.bag) this.applyBagCheck(data.bag);
+      else this.renderFabledSelection();
+    } catch (error) {
+      console.error('Failed to update fabled:', error);
+    }
   }
 
   renderBagNotes() {
@@ -1179,7 +1319,10 @@ class ClockTowerApp {
       this.roomPlayers = data.players;
       this.playerOrder = data.playerOrder || [];
       if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
-      if (data.bag) this.bagCheck = data.bag;
+      if (data.bag) {
+        this.bagCheck = data.bag;
+        if (data.bag.travellerAlignments) this.travellerAlignments = data.bag.travellerAlignments;
+      }
       
       // Update role set from room
       if (data.room.roleSet) {
@@ -1265,7 +1408,10 @@ class ClockTowerApp {
       this.roomPlayers = data.players;
       this.playerOrder = data.playerOrder || [];
       if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
-      if (data.bag) this.bagCheck = data.bag;
+      if (data.bag) {
+        this.bagCheck = data.bag;
+        if (data.bag.travellerAlignments) this.travellerAlignments = data.bag.travellerAlignments;
+      }
       
       // Update role set if provided
       if (data.room.roleSet) {
@@ -1277,6 +1423,7 @@ class ClockTowerApp {
       }
       
       this.renderPlayers();
+      this.renderFabledStrip();
       this.updateRoleSelectionUI();
       this.updateRoleSetUI();
 
@@ -1301,6 +1448,7 @@ class ClockTowerApp {
       const response = await fetch('/api/my-role');
       const data = await response.json();
       this.myRole = data.role;
+      this.myAlignment = data.alignment || null;
       this.myBluffs = data.bluffs || null;
       this.myLunatic = data.lunatic || null;
       this.updateRoleDisplay();
@@ -1333,6 +1481,17 @@ class ClockTowerApp {
   updateRoomDisplay() {
     if (!this.room) return;
     document.getElementById('display-room-code').textContent = this.room.code;
+    this.renderFabledStrip();
+  }
+
+  maskPhrase(playerData) {
+    if (!playerData) return '';
+    if (playerData.mask) {
+      const verb = playerData.role && playerData.role.id === 'apprentice' ? 'is the' : 'thinks they are';
+      const alignment = playerData.alignment ? `, ${playerData.alignment}` : '';
+      return `${verb} ${playerData.mask.name}${alignment}`;
+    }
+    return playerData.alignment || '';
   }
   
   updateHostUI() {
@@ -1384,6 +1543,7 @@ class ClockTowerApp {
       descEl.textContent = this.myRole.description;
       if (extraEl) {
         const bits = [];
+        if (this.myAlignment) bits.push(`You are ${this.myAlignment}.`);
         if (this.myBluffs && this.myBluffs.length) {
           bits.push(`Bluffs: ${this.myBluffs.map(role => role.name).join(', ')}`);
         }
@@ -1444,7 +1604,7 @@ class ClockTowerApp {
                 <span class="role-name">${this.escapeHtml(role.name)}${playerData.isDrunk ? ' 🍺' : ''}</span>
                 <span class="role-category-tag">${role.category}</span>
               </div>
-              ${playerData.mask ? `<span class="role-mask">thinks they are ${this.escapeHtml(playerData.mask.name)}</span>` : ''}
+              ${this.maskPhrase(playerData) ? `<span class="role-mask">${this.escapeHtml(this.maskPhrase(playerData))}</span>` : ''}
               ${this.reminderHtml(playerData)}
             ` : '<span class="no-role">No role assigned</span>'}
           </div>
@@ -1980,7 +2140,7 @@ class ClockTowerApp {
     
     const lines = this.grimoireData.map(playerData => {
       const roleName = playerData.role ? playerData.role.name : 'No role';
-      const maskSuffix = playerData.mask ? ` (thinks they are ${playerData.mask.name})` : '';
+      const maskSuffix = this.maskPhrase(playerData) ? ` (${this.maskPhrase(playerData)})` : '';
       const drunkSuffix = playerData.isDrunk ? ' (drunk)' : '';
       const reminderSuffix = (playerData.reminders || []).length ? ` [${playerData.reminders.join(', ')}]` : '';
       return `@${playerData.username} is [[${roleName}]]${maskSuffix}${drunkSuffix}${reminderSuffix}`;
@@ -1990,6 +2150,9 @@ class ClockTowerApp {
     }
     if (this.lunaticBluffs && this.lunaticBluffs.length) {
       lines.push(`Lunatic bluffs: ${this.lunaticBluffs.map(role => role.name).join(', ')}`);
+    }
+    if (this.room && this.room.fabled && this.room.fabled.length) {
+      lines.push(`Fabled: ${this.room.fabled.map(role => role.name).join(', ')}`);
     }
     
     const text = lines.join('\n');
@@ -2069,18 +2232,34 @@ class ClockTowerApp {
   }
 
   renderAlmanac() {
-    const categories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
+    const categories = BAG_CATEGORIES;
     
     for (const category of categories) {
       const container = document.getElementById(`almanac-${category}`);
-      if (!container || !this.allRoles[category]) continue;
+      if (!container) continue;
+      const roles = (this.allRoles && this.allRoles[category]) || [];
+      if (!roles.length) {
+        container.innerHTML = '<div class="role-empty">None on this script</div>';
+        continue;
+      }
       
-      container.innerHTML = this.allRoles[category].map(role => `
+      container.innerHTML = roles.map(role => `
         <div class="almanac-role-item ${category}">
           <div class="role-name">${this.escapeHtml(role.name)}</div>
           <div class="role-desc">${this.escapeHtml(role.description)}</div>
         </div>
       `).join('');
+    }
+
+    const fabledEl = document.getElementById('almanac-Fabled');
+    if (fabledEl) {
+      const inPlay = new Set(((this.room && this.room.fabled) || []).map(role => role.id));
+      fabledEl.innerHTML = (this.fabledCatalog || []).map(role => `
+        <div class="almanac-role-item Fabled ${inPlay.has(role.id) ? 'in-play' : ''}">
+          <div class="role-name">${this.escapeHtml(role.name)}${inPlay.has(role.id) ? ' · in play' : ''}</div>
+          <div class="role-desc">${this.escapeHtml(role.description)}</div>
+        </div>
+      `).join('') || '<div class="role-empty">None</div>';
     }
   }
   
@@ -2179,7 +2358,7 @@ class ClockTowerApp {
 
   scriptRoleIds() {
     const ids = [];
-    for (const category of ['Townsfolk', 'Outsiders', 'Minions', 'Demons']) {
+    for (const category of BAG_CATEGORIES) {
       for (const role of this.allRoles[category] || []) ids.push(role.id);
     }
     return ids;
@@ -2190,7 +2369,7 @@ class ClockTowerApp {
     if (!catalogEl || !this.catalog) return;
     const checked = new Set(this.scriptRoleIds());
     catalogEl.innerHTML = (this.catalog.editions || []).map(edition => {
-      const teams = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'].map(team => {
+      const teams = BAG_CATEGORIES.map(team => {
         const roles = (edition.roles[team] || []).map(role => `
           <label class="scenario-role">
             <input type="checkbox" value="${this.escapeHtml(role.id)}" ${checked.has(role.id) ? 'checked' : ''}>
@@ -2257,7 +2436,10 @@ class ClockTowerApp {
         if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
       }
       if (data.roleSetRoles) this.allRoles = data.roleSetRoles;
-      if (data.bag) this.bagCheck = data.bag;
+      if (data.bag) {
+        this.bagCheck = data.bag;
+        if (data.bag.travellerAlignments) this.travellerAlignments = data.bag.travellerAlignments;
+      }
       this.populateRoleSetSelectors();
       this.updateRoleSetUI();
       this.renderRoleSelection();
@@ -3297,7 +3479,7 @@ class ClockTowerApp {
   showRoleAutocomplete(query) {
     // Search all roles for matches
     const matchingRoles = [];
-    const categories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
+    const categories = BAG_CATEGORIES;
     
     for (const category of categories) {
       if (!this.allRoles[category]) continue;
@@ -3312,6 +3494,17 @@ class ClockTowerApp {
             display: role.name
           });
         }
+      }
+    }
+    for (const role of this.fabledCatalog || []) {
+      if (role.name.toLowerCase().startsWith(query)) {
+        matchingRoles.push({
+          type: 'role',
+          name: role.name,
+          category: 'Fabled',
+          description: role.description,
+          display: role.name
+        });
       }
     }
     
@@ -3470,7 +3663,7 @@ class ClockTowerApp {
       let foundRole = null;
       let foundCategory = null;
       
-      const categories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
+      const categories = BAG_CATEGORIES;
       for (const category of categories) {
         if (!this.allRoles[category]) continue;
         const role = this.allRoles[category].find(r => 
@@ -3480,6 +3673,13 @@ class ClockTowerApp {
           foundRole = role;
           foundCategory = category;
           break;
+        }
+      }
+      if (!foundRole) {
+        const fabledRole = (this.fabledCatalog || []).find(role => role.name.toLowerCase() === roleName.toLowerCase());
+        if (fabledRole) {
+          foundRole = fabledRole;
+          foundCategory = 'Fabled';
         }
       }
       

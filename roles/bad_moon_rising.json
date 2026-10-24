@@ -315,6 +315,65 @@
           "3 attacks"
         ]
       }
+    ],
+    "Travellers": [
+      {
+        "id": "apprentice",
+        "name": "Apprentice",
+        "description": "On your 1st night, you gain a Townsfolk ability (if good), or a Minion ability (if evil).",
+        "firstNight": 1,
+        "otherNight": 0,
+        "firstNightReminder": "Show the Apprentice the 'You are' card, then a Townsfolk or Minion token. In the Grimoire, replace the Apprentice token with that character token, and put the Apprentice's 'Is the Apprentice' reminder by that character token.",
+        "otherNightReminder": "",
+        "reminders": [
+          "Is the Apprentice"
+        ]
+      },
+      {
+        "id": "matron",
+        "name": "Matron",
+        "description": "Each day, you may choose up to 3 sets of 2 players to swap seats. Players may not leave their seats to talk in private.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      },
+      {
+        "id": "judge",
+        "name": "Judge",
+        "description": "Once per game, if another player nominated, you may choose to force the current execution to pass or fail.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "No ability"
+        ]
+      },
+      {
+        "id": "bishop",
+        "name": "Bishop",
+        "description": "Only the Storyteller can nominate. At least 1 opposite player must be nominated each day.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "Nominate good",
+          "Nominate evil"
+        ]
+      },
+      {
+        "id": "voudon",
+        "name": "Voudon",
+        "description": "Only you and the dead can vote. They don't need a vote token to do so. A 50% majority is not required.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
+      }
     ]
   }
 }
