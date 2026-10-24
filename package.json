@@ -16,7 +16,8 @@
     "dev:watch": "parcel watch --target frontend",
     "build": "parcel build --target frontend",
     "restart": "lsof -ti:7105 | xargs kill -9 2>/dev/null || true && npm start",
-    "test:game": "node test-game.js"
+    "test:game": "node test-game.js",
+    "test:setup": "node test/setup.test.cjs"
   },
   "dependencies": {
     "express": "^4.18.2",

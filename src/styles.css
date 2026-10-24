@@ -1198,8 +1198,9 @@ h1 {
 
 .grimoire-player {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 15px;
   padding: 14px 16px;
   background: rgba(0, 0, 0, 0.4);
@@ -1232,11 +1233,21 @@ h1 {
 
 .grimoire-role {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
   padding: 8px 14px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.3);
+}
+
+.role-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .grimoire-role .role-name {
@@ -3659,10 +3670,10 @@ h1 {
 }
 
 .grimoire-actions {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  transform: none;
+  margin-left: auto;
+  align-self: center;
   display: flex;
   gap: 8px;
   z-index: 10;
@@ -3752,9 +3763,9 @@ h1 {
   box-shadow: 0 0 15px rgba(136, 136, 136, 0.5);
 }
 
-/* Adjust grimoire role position to make room for buttons */
+/* Role text sits beside the seat actions, so it no longer needs a reserved gutter. */
 .grimoire-role {
-  margin-right: 130px;
+  margin-right: 0;
 }
 
 /* Mobile adjustments for grimoire buttons */
@@ -3783,7 +3794,7 @@ h1 {
   }
   
   .grimoire-role {
-    margin-right: 110px;
+    margin-right: 0;
   }
   
   .dead-badge {
@@ -5082,6 +5093,201 @@ h1 {
   .confirm-popup-buttons .btn-danger {
     max-width: none;
     width: 100%;
+  }
+}
+
+/* Scenarios, bag check, and night sheet */
+.role-set-selector {
+  flex-wrap: wrap;
+}
+
+.scenario-builder,
+.bag-notes,
+.godfather-choice,
+.night-preview,
+.night-sheet,
+.bluff-strip,
+.role-extra {
+  font-family: 'Hack', monospace;
+}
+
+.scenario-builder {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--gold-dim);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scenario-help,
+.bag-notes,
+.step-detail,
+.role-mask,
+.role-extra {
+  color: var(--parchment);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.scenario-builder input,
+.scenario-builder textarea,
+.reminder-select {
+  background: rgba(0, 0, 0, 0.4);
+  border: 2px solid var(--fog);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--bone);
+  font-family: 'Hack', monospace;
+}
+
+.scenario-builder input,
+.scenario-builder textarea {
+  width: 100%;
+}
+
+.reminder-select {
+  width: auto;
+  max-width: 9rem;
+  padding: 4px 8px;
+}
+
+.scenario-catalog {
+  max-height: 280px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.scenario-edition {
+  margin-top: 12px;
+  color: var(--gold);
+}
+
+.scenario-team {
+  margin: 8px 0 4px;
+  color: var(--bone);
+  font-size: 0.8rem;
+}
+
+.scenario-role {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 3px 0;
+  color: var(--parchment);
+  font-size: 0.85rem;
+}
+
+.bag-notes,
+.godfather-choice,
+.night-preview {
+  width: 100%;
+}
+
+.bag-notes.ok {
+  color: #9dcc8a;
+}
+
+.bag-notes.bad {
+  color: #e08b8b;
+}
+
+.godfather-choice {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.choice-btn {
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--bone);
+  border: 1px solid var(--gold-dim);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: 'Hack', monospace;
+}
+
+.choice-btn.selected {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.night-preview,
+.night-sheet {
+  margin: 8px 0 12px;
+  color: var(--bone);
+}
+
+.night-preview summary,
+.night-sheet summary {
+  cursor: pointer;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+
+.night-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.night-sheet .night-columns {
+  grid-template-columns: 1fr;
+}
+
+.night-step {
+  margin-bottom: 10px;
+}
+
+.step-name {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.bluff-strip,
+.role-extra {
+  margin: 8px 16px 0;
+}
+
+.role-mask {
+  display: block;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.reminder-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.reminder-chip {
+  background: rgba(201, 162, 39, 0.15);
+  color: var(--gold);
+  border: 1px solid var(--gold-dim);
+  border-radius: 999px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: 'Hack', monospace;
+  font-size: 0.75rem;
+}
+
+.role-empty {
+  padding: 8px 12px;
+  color: var(--parchment);
+  opacity: 0.7;
+  font-style: italic;
+}
+
+@media (max-width: 700px) {
+  .night-columns {
+    grid-template-columns: 1fr;
   }
 }
 

@@ -3,100 +3,261 @@
   "Roles": {
     "Townsfolk": [
       {
+        "id": "washerwoman",
         "name": "Washerwoman",
-        "description": "You start knowing that 1 of 2 players is a particular Townsfolk."
+        "description": "You start knowing that 1 of 2 players is a particular Townsfolk.",
+        "firstNight": 33,
+        "otherNight": 0,
+        "firstNightReminder": "Show the character token of a Townsfolk in play. Point to two players, one of which is that character.",
+        "otherNightReminder": "",
+        "reminders": [
+          "Townsfolk",
+          "Wrong"
+        ]
       },
       {
+        "id": "librarian",
         "name": "Librarian",
-        "description": "You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)"
+        "description": "You start knowing that 1 of 2 players is a particular Outsider. (Or that zero are in play.)",
+        "firstNight": 34,
+        "otherNight": 0,
+        "firstNightReminder": "Show the character token of an Outsider in play. Point to two players, one of which is that character.",
+        "otherNightReminder": "",
+        "reminders": [
+          "Outsider",
+          "Wrong"
+        ]
       },
       {
+        "id": "investigator",
         "name": "Investigator",
-        "description": "You start knowing that 1 of 2 players is a particular Minion."
+        "description": "You start knowing that 1 of 2 players is a particular Minion.",
+        "firstNight": 35,
+        "otherNight": 0,
+        "firstNightReminder": "Show the character token of a Minion in play. Point to two players, one of which is that character.",
+        "otherNightReminder": "",
+        "reminders": [
+          "Minion",
+          "Wrong"
+        ]
       },
       {
+        "id": "chef",
         "name": "Chef",
-        "description": "You start knowing how many pairs of evil players there are."
+        "description": "You start knowing how many pairs of evil players there are.",
+        "firstNight": 36,
+        "otherNight": 0,
+        "firstNightReminder": "Show the finger signal (0, 1, 2, …) for the number of pairs of neighbouring evil players.",
+        "otherNightReminder": "",
+        "reminders": []
       },
       {
+        "id": "empath",
         "name": "Empath",
-        "description": "Each night, you learn how many of your 2 alive neighbors are evil."
+        "description": "Each night, you learn how many of your 2 alive neighbours are evil.",
+        "firstNight": 37,
+        "otherNight": 53,
+        "firstNightReminder": "Show the finger signal (0, 1, 2) for the number of evil alive neighbours of the Empath.",
+        "otherNightReminder": "Show the finger signal (0, 1, 2) for the number of evil neighbours.",
+        "reminders": []
       },
       {
+        "id": "fortuneteller",
         "name": "Fortune Teller",
-        "description": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you."
+        "description": "Each night, choose 2 players: you learn if either is a Demon. There is a good player that registers as a Demon to you.",
+        "firstNight": 38,
+        "otherNight": 54,
+        "firstNightReminder": "The Fortune Teller points to two players. Give the head signal (nod yes, shake no) for whether one of those players is the Demon. ",
+        "otherNightReminder": "The Fortune Teller points to two players. Show the head signal (nod 'yes', shake 'no') for whether one of those players is the Demon.",
+        "reminders": [
+          "Red herring"
+        ]
       },
       {
+        "id": "undertaker",
         "name": "Undertaker",
-        "description": "Each night (Not the First Night), you learn which character died by execution today."
+        "description": "Each night*, you learn which character died by execution today.",
+        "firstNight": 0,
+        "otherNight": 55,
+        "firstNightReminder": "",
+        "otherNightReminder": "If a player was executed today: Show that player's character token.",
+        "reminders": [
+          "Executed"
+        ]
       },
       {
+        "id": "monk",
         "name": "Monk",
-        "description": "Each night (Not the First Night), choose a player (not yourself): they are safe from the Demon tonight."
+        "description": "Each night*, choose a player (not yourself): they are safe from the Demon tonight.",
+        "firstNight": 0,
+        "otherNight": 12,
+        "firstNightReminder": "",
+        "otherNightReminder": "The previously protected player is no longer protected. The Monk points to a player not themself. Mark that player 'Protected'.",
+        "reminders": [
+          "Protected"
+        ]
       },
       {
+        "id": "ravenkeeper",
         "name": "Ravenkeeper",
-        "description": "If you die at night, you are woken to choose a player: you learn their character."
+        "description": "If you die at night, you are woken to choose a player: you learn their character.",
+        "firstNight": 0,
+        "otherNight": 52,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Ravenkeeper died tonight: The Ravenkeeper points to a player. Show that player's character token.",
+        "reminders": []
       },
       {
+        "id": "virgin",
         "name": "Virgin",
-        "description": "The 1st time you are nominated, if the nominator is a Townsfolk, they are executed immediately."
+        "description": "The 1st time you are nominated, if the nominator is a Townsfolk, they are executed immediately.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "No ability"
+        ]
       },
       {
+        "id": "slayer",
         "name": "Slayer",
-        "description": "Once per game, during the day, publicly choose a player: if they are the Demon, they die."
+        "description": "Once per game, during the day, publicly choose a player: if they are the Demon, they die.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "No ability"
+        ]
       },
       {
+        "id": "soldier",
         "name": "Soldier",
-        "description": "You are safe from the Demon."
+        "description": "You are safe from the Demon.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       },
       {
+        "id": "mayor",
         "name": "Mayor",
-        "description": "If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead."
+        "description": "If only 3 players live & no execution occurs, your team wins. If you die at night, another player might die instead.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       }
     ],
     "Outsiders": [
       {
+        "id": "butler",
         "name": "Butler",
-        "description": "Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too."
+        "description": "Each night, choose a player (not yourself): tomorrow, you may only vote if they are voting too.",
+        "firstNight": 39,
+        "otherNight": 67,
+        "firstNightReminder": "The Butler points to a player. Mark that player as 'Master'.",
+        "otherNightReminder": "The Butler points to a player. Mark that player as 'Master'.",
+        "reminders": [
+          "Master"
+        ]
       },
       {
+        "id": "drunk",
         "name": "Drunk",
-        "description": "You do not know you are the Drunk. You think you are a Townsfolk character, but you are not."
+        "description": "You do not know you are the Drunk. You think you are a Townsfolk character, but you are not.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [],
+        "remindersGlobal": [
+          "Drunk"
+        ]
       },
       {
+        "id": "recluse",
         "name": "Recluse",
-        "description": "You might register as evil & as a Minion or Demon, even if dead."
+        "description": "You might register as evil & as a Minion or Demon, even if dead.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       },
       {
+        "id": "saint",
         "name": "Saint",
-        "description": "If you die by execution, your team loses."
+        "description": "If you die by execution, your team loses.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       }
     ],
     "Minions": [
       {
+        "id": "poisoner",
         "name": "Poisoner",
-        "description": "Each night, choose a player: they are poisoned tonight and tomorrow day."
+        "description": "Each night, choose a player: they are poisoned tonight and tomorrow day.",
+        "firstNight": 17,
+        "otherNight": 7,
+        "firstNightReminder": "The Poisoner points to a player. That player is poisoned.",
+        "otherNightReminder": "The previously poisoned player is no longer poisoned. The Poisoner points to a player. That player is poisoned.",
+        "reminders": [
+          "Poisoned"
+        ]
       },
       {
+        "id": "spy",
         "name": "Spy",
-        "description": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead."
+        "description": "Each night, you see the Grimoire. You might register as good & as a Townsfolk or Outsider, even if dead.",
+        "firstNight": 49,
+        "otherNight": 68,
+        "firstNightReminder": "Show the Grimoire to the Spy for as long as they need.",
+        "otherNightReminder": "Show the Grimoire to the Spy for as long as they need.",
+        "reminders": []
       },
       {
-        "name": "Baron",
-        "description": "There are extra Outsiders in play. [+2 Outsiders]"
-      },
-      {
+        "id": "scarletwoman",
         "name": "Scarlet Woman",
-        "description": "If there are 5 or more players alive & the Demon dies, you become the Demon. (Travellers don't count.)"
+        "description": "If there are 5 or more players alive & the Demon dies, you become the Demon. (Travellers don't count)",
+        "firstNight": 0,
+        "otherNight": 19,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Scarlet Woman became the Demon today: Show the 'You are' card, then the demon token.",
+        "reminders": [
+          "Demon"
+        ]
+      },
+      {
+        "id": "baron",
+        "name": "Baron",
+        "description": "There are extra Outsiders in play. [+2 Outsiders]",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       }
     ],
     "Demons": [
       {
+        "id": "imp",
         "name": "Imp",
-        "description": "Each night (Not the First Night), choose a player: they die. If you kill yourself this way, a Minion becomes the Imp."
+        "description": "Each night*, choose a player: they die. If you kill yourself this way, a Minion becomes the Imp.",
+        "firstNight": 0,
+        "otherNight": 24,
+        "firstNightReminder": "",
+        "otherNightReminder": "The Imp points to a player. That player dies. If the Imp chose themselves: Replace the character of 1 alive minion with a spare Imp token. Show the 'You are' card, then the Imp token.",
+        "reminders": [
+          "Dead"
+        ]
       }
     ]
   }
-  
 }

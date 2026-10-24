@@ -3,115 +3,318 @@
   "Roles": {
     "Townsfolk": [
       {
+        "id": "grandmother",
         "name": "Grandmother",
-        "description": "You start knowing a good player & character. If the Demon kills them, you die too."
+        "description": "You start knowing a good player & their character. If the Demon kills them, you die too.",
+        "firstNight": 40,
+        "otherNight": 51,
+        "firstNightReminder": "Show the marked character token. Point to the marked player.",
+        "otherNightReminder": "If the Grandmother's grandchild was killed by the Demon tonight: The Grandmother dies.",
+        "reminders": [
+          "Grandchild"
+        ]
       },
       {
+        "id": "sailor",
         "name": "Sailor",
-        "description": "Each night, choose a living player: either you, or they, are drunk until dusk. You can not die."
+        "description": "Each night, choose an alive player: either you or they are drunk until dusk. You can't die.",
+        "firstNight": 11,
+        "otherNight": 4,
+        "firstNightReminder": "The Sailor points to a living player. Either the Sailor, or the chosen player, is drunk.",
+        "otherNightReminder": "The previously drunk player is no longer drunk. The Sailor points to a living player. Either the Sailor, or the chosen player, is drunk.",
+        "reminders": [
+          "Drunk"
+        ]
       },
       {
+        "id": "chambermaid",
         "name": "Chambermaid",
-        "description": "Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability."
+        "description": "Each night, choose 2 alive players (not yourself): you learn how many woke tonight due to their ability.",
+        "firstNight": 51,
+        "otherNight": 70,
+        "firstNightReminder": "The Chambermaid points to two players. Show the number signal (0, 1, 2, …) for how many of those players wake tonight for their ability.",
+        "otherNightReminder": "The Chambermaid points to two players. Show the number signal (0, 1, 2, …) for how many of those players wake tonight for their ability.",
+        "reminders": []
       },
       {
+        "id": "exorcist",
         "name": "Exorcist",
-        "description": "Each night (Not the First Night), choose a player (different to last night): the Demon, if chosen, learns who you are then doesn't wake tonight."
+        "description": "Each night*, choose a player (different to last night): the Demon, if chosen, learns who you are then doesn't wake tonight.",
+        "firstNight": 0,
+        "otherNight": 21,
+        "firstNightReminder": "",
+        "otherNightReminder": "The Exorcist points to a player, different from the previous night. If that player is the Demon: Wake the Demon. Show the Exorcist token. Point to the Exorcist. The Demon does not act tonight.",
+        "reminders": [
+          "Chosen"
+        ]
       },
       {
+        "id": "innkeeper",
         "name": "Innkeeper",
-        "description": "Each night (Not the First Night), choose 2 players: they can not die tonight, but 1 is drunk until dusk."
+        "description": "Each night*, choose 2 players: they can't die tonight, but 1 is drunk until dusk.",
+        "firstNight": 0,
+        "otherNight": 9,
+        "firstNightReminder": "",
+        "otherNightReminder": "The previously protected and drunk players lose those markers. The Innkeeper points to two players. Those players are protected. One is drunk.",
+        "reminders": [
+          "Protected",
+          "Drunk"
+        ]
       },
       {
+        "id": "gambler",
         "name": "Gambler",
-        "description": "Each night (Not the First Night), choose a player & guess their character: if you guess wrong, you die."
+        "description": "Each night*, choose a player & guess their character: if you guess wrong, you die.",
+        "firstNight": 0,
+        "otherNight": 10,
+        "firstNightReminder": "",
+        "otherNightReminder": "The Gambler points to a player, and a character on their sheet. If incorrect, the Gambler dies.",
+        "reminders": [
+          "Dead"
+        ]
       },
       {
+        "id": "gossip",
         "name": "Gossip",
-        "description": "Each day, you may make a public statement. Tonight, if it was true, a player dies."
+        "description": "Each day, you may make a public statement. Tonight, if it was true, a player dies.",
+        "firstNight": 0,
+        "otherNight": 38,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Gossip's public statement was true: Choose a player not protected from dying tonight. That player dies.",
+        "reminders": [
+          "Dead"
+        ]
       },
       {
+        "id": "courtier",
         "name": "Courtier",
-        "description": "Once per game, at night, choose a character: they are drunk for 3 nights & 3 days."
+        "description": "Once per game, at night, choose a character: they are drunk for 3 nights & 3 days.",
+        "firstNight": 19,
+        "otherNight": 8,
+        "firstNightReminder": "The Courtier either shows a 'no' head signal, or points to a character on the sheet. If the Courtier used their ability: If that character is in play, that player is drunk.",
+        "otherNightReminder": "Reduce the remaining number of days the marked player is poisoned. If the Courtier has not yet used their ability: The Courtier either shows a 'no' head signal, or points to a character on the sheet. If the Courtier used their ability: If that character is in play, that player is drunk.",
+        "reminders": [
+          "Drunk 3",
+          "Drunk 2",
+          "Drunk 1",
+          "No ability"
+        ]
       },
       {
+        "id": "professor",
         "name": "Professor",
-        "description": "Once per game, at night (Not the First Night), choose a dead player: if they are a Townsfolk, they are resurrected."
+        "description": "Once per game, at night*, choose a dead player: if they are a Townsfolk, they are resurrected.",
+        "firstNight": 0,
+        "otherNight": 43,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Professor has not used their ability: The Professor either shakes their head no, or points to a player. If that player is a Townsfolk, they are now alive.",
+        "reminders": [
+          "Alive",
+          "No ability"
+        ]
       },
       {
+        "id": "minstrel",
         "name": "Minstrel",
-        "description": "When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow."
+        "description": "When a Minion dies by execution, all other players (except Travellers) are drunk until dusk tomorrow.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "Everyone drunk"
+        ]
       },
       {
+        "id": "tealady",
         "name": "Tea Lady",
-        "description": "If both your alive neighbours are good, they can't die."
+        "description": "If both your alive neighbours are good, they can't die.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "Can not die"
+        ]
       },
       {
+        "id": "pacifist",
         "name": "Pacifist",
-        "description": "Executed good players might not die."
+        "description": "Executed good players might not die.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       },
       {
+        "id": "fool",
         "name": "Fool",
-        "description": "The first time you die, you don't."
+        "description": "The first time you die, you don't.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "No ability"
+        ]
       }
     ],
     "Outsiders": [
       {
+        "id": "tinker",
         "name": "Tinker",
-        "description": "You might die at any time."
+        "description": "You might die at any time.",
+        "firstNight": 0,
+        "otherNight": 49,
+        "firstNightReminder": "",
+        "otherNightReminder": "The Tinker might die.",
+        "reminders": [
+          "Dead"
+        ]
       },
       {
+        "id": "moonchild",
         "name": "Moonchild",
-        "description": "When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die."
+        "description": "When you learn that you died, publicly choose 1 alive player. Tonight, if it was a good player, they die.",
+        "firstNight": 0,
+        "otherNight": 50,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Moonchild used their ability to target a player today: If that player is good, they die.",
+        "reminders": [
+          "Dead"
+        ]
       },
       {
+        "id": "goon",
         "name": "Goon",
-        "description": "Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment."
+        "description": "Each night, the 1st player to choose you with their ability is drunk until dusk. You become their alignment.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": [
+          "Drunk"
+        ]
       },
       {
+        "id": "lunatic",
         "name": "Lunatic",
-        "description": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night."
+        "description": "You think you are a Demon, but you are not. The Demon knows who you are & who you choose at night.",
+        "firstNight": 8,
+        "otherNight": 20,
+        "firstNightReminder": "If 7 or more players: Show the Lunatic a number of arbitrary 'Minions', players equal to the number of Minions in play. Show 3 character tokens of arbitrary good characters. If the token received by the Lunatic is a Demon that would wake tonight: Allow the Lunatic to do the Demon actions. Place their 'attack' markers. Wake the Demon. Show the Demon's real character token. Show them the Lunatic player. If the Lunatic attacked players: Show the real demon each marked player. Remove any Lunatic 'attack' markers.",
+        "otherNightReminder": "Allow the Lunatic to do the actions of the Demon. Place their 'attack' markers. If the Lunatic selected players: Wake the Demon. Show the 'attack' marker, then point to each marked player. Remove any Lunatic 'attack' markers.",
+        "reminders": [
+          "Attack 1",
+          "Attack 2",
+          "Attack 3"
+        ]
       }
     ],
     "Minions": [
       {
+        "id": "godfather",
         "name": "Godfather",
-        "description": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]."
+        "description": "You start knowing which Outsiders are in play. If 1 died today, choose a player tonight: they die. [-1 or +1 Outsider]",
+        "firstNight": 21,
+        "otherNight": 37,
+        "firstNightReminder": "Show each of the Outsider tokens in play.",
+        "otherNightReminder": "If an Outsider died today: The Godfather points to a player. That player dies.",
+        "reminders": [
+          "Died today",
+          "Dead"
+        ]
       },
       {
+        "id": "devilsadvocate",
         "name": "Devil's Advocate",
-        "description": "Each night, choose a living player (different to last night): if executed tomorrow, they don't die."
+        "description": "Each night, choose a living player (different to last night): if executed tomorrow, they don't die.",
+        "firstNight": 22,
+        "otherNight": 13,
+        "firstNightReminder": "The Devil's Advocate points to a living player. That player survives execution tomorrow.",
+        "otherNightReminder": "The Devil's Advocate points to a living player, different from the previous night. That player survives execution tomorrow.",
+        "reminders": [
+          "Survives execution"
+        ]
       },
       {
+        "id": "assassin",
         "name": "Assassin",
-        "description": "Once per game, at night (Not the First Night), choose a player: they die, even if for some reason they could not."
+        "description": "Once per game, at night*, choose a player: they die, even if for some reason they could not.",
+        "firstNight": 0,
+        "otherNight": 36,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Assassin has not yet used their ability: The Assassin either shows the 'no' head signal, or points to a player. That player dies.",
+        "reminders": [
+          "Dead",
+          "No ability"
+        ]
       },
       {
+        "id": "mastermind",
         "name": "Mastermind",
-        "description": "If the Demon dies by execution (ending the game), play for 1 more day. If a player is then executed, their team loses."
+        "description": "If the Demon dies by execution (ending the game), play for 1 more day. If a player is then executed, their team loses.",
+        "firstNight": 0,
+        "otherNight": 0,
+        "firstNightReminder": "",
+        "otherNightReminder": "",
+        "reminders": []
       }
     ],
     "Demons": [
       {
+        "id": "zombuul",
         "name": "Zombuul",
-        "description": "Each night (Not the First Night), if no-one died today, choose a player: they die. The 1st time you die, you live but register as dead."
+        "description": "Each night*, if no-one died today, choose a player: they die. The 1st time you die, you live but register as dead.",
+        "firstNight": 0,
+        "otherNight": 25,
+        "firstNightReminder": "",
+        "otherNightReminder": "If no-one died during the day: The Zombuul points to a player. That player dies.",
+        "reminders": [
+          "Died today",
+          "Dead"
+        ]
       },
       {
+        "id": "pukka",
         "name": "Pukka",
-        "description": "Each night, choose a player: they are poisoned. The previously poisoned player dies then becomes healthy."
+        "description": "Each night, choose a player: they are poisoned. The previously poisoned player dies then becomes healthy.",
+        "firstNight": 28,
+        "otherNight": 26,
+        "firstNightReminder": "The Pukka points to a player. That player is poisoned.",
+        "otherNightReminder": "The Pukka points to a player. That player is poisoned. The previously poisoned player dies. ",
+        "reminders": [
+          "Poisoned",
+          "Dead"
+        ]
       },
       {
+        "id": "shabaloth",
         "name": "Shabaloth",
-        "description": "Each night (Not the First Night), choose 2 players: they die. A dead player you chose last night might be regurgitated."
+        "description": "Each night*, choose 2 players: they die. A dead player you chose last night might be regurgitated.",
+        "firstNight": 0,
+        "otherNight": 27,
+        "firstNightReminder": "",
+        "otherNightReminder": "One player that the Shabaloth chose the previous night might be resurrected. The Shabaloth points to two players. Those players die.",
+        "reminders": [
+          "Dead",
+          "Alive"
+        ]
       },
       {
+        "id": "po",
         "name": "Po",
-        "description": "Each night (Not the First Night), you may choose a player: they die. If your last choice was no-one, choose 3 players tonight."
+        "description": "Each night*, you may choose a player: they die. If your last choice was no-one, choose 3 players tonight.",
+        "firstNight": 0,
+        "otherNight": 28,
+        "firstNightReminder": "",
+        "otherNightReminder": "If the Po chose no-one the previous night: The Po points to three players. Otherwise: The Po either shows the 'no' head signal , or points to a player. Chosen players die",
+        "reminders": [
+          "Dead",
+          "3 attacks"
+        ]
       }
     ]
   }
 }
-
-
-
-

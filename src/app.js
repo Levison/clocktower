@@ -43,6 +43,15 @@ class ClockTowerApp {
     this.currentRoleSet = 'trouble_brewing'; // Current role set ID
     this.currentRoleSetName = 'Trouble Brewing'; // Current role set display name
     this.selectedRoles = []; // Currently selected roles for the game
+    this.bagCheck = null; // Server bag math for the current script
+    this.catalog = null; // All editions, for building a custom scenario
+    this.bluffs = [];
+    this.lunaticBluffs = [];
+    this.nightSheet = null;
+    this.reminderTokens = [];
+    this.myBluffs = null;
+    this.myLunatic = null;
+    this.nightSheetSeen = false;
     this.grimoireData = []; // Host-only: all player roles
     this.isRoleCardHidden = false; // Track if player has hidden their role card
     this.isGrimoireHidden = false; // Track if host has hidden the grimoire
@@ -93,6 +102,7 @@ class ClockTowerApp {
 
     // Fetch role sets list
     await this.fetchRoleSets();
+    await this.fetchCatalog();
     
     // Fetch default roles data
     await this.fetchRoles();
@@ -126,9 +136,19 @@ class ClockTowerApp {
     }
   }
   
+  async fetchCatalog() {
+    try {
+      const response = await fetch('/api/catalog');
+      if (response.ok) this.catalog = await response.json();
+    } catch (error) {
+      console.error('Failed to fetch catalog:', error);
+    }
+  }
+
   async fetchRoles(roleSetId = null) {
     try {
       const setId = roleSetId || this.currentRoleSet;
+      if (setId === 'custom') return;
       const response = await fetch(`/api/roles/${setId}`);
       if (response.ok) {
         this.allRoles = await response.json();
@@ -267,10 +287,16 @@ class ClockTowerApp {
       this.currentRoleSet = roleSet;
       this.currentRoleSetName = roleSetName;
       this.allRoles = roles;
+      this.selectedRoles = [];
+      this.populateRoleSetSelectors();
       this.updateRoleSetUI();
       this.renderRoleSelection();
       this.renderAlmanac();
-      this.showToast(`Role set changed to ${roleSetName}`, 'info');
+      this.showToast(`Script is now ${roleSetName}`, 'info');
+    });
+
+    this.socket.on('bagUpdated', (bag) => {
+      this.applyBagCheck(bag);
     });
     
     this.socket.on('rolesDistributed', async () => {
@@ -288,6 +314,12 @@ class ClockTowerApp {
     this.socket.on('rolesReset', () => {
       this.showToast('Roles have been reset.', 'info');
       this.myRole = null;
+      this.myBluffs = null;
+      this.myLunatic = null;
+      this.bluffs = [];
+      this.lunaticBluffs = [];
+      this.nightSheet = null;
+      this.nightSheetSeen = false;
       this.isRoleCardHidden = false;
       this.grimoireData = [];
       if (this.room) this.room.rolesAssigned = false;
@@ -477,7 +509,7 @@ class ClockTowerApp {
     // Toggle grimoire visibility (host only)
     document.getElementById('grimoire-section').addEventListener('click', (e) => {
       // Only toggle if clicking on the grimoire card itself, not buttons inside
-      if (!e.target.closest('button') && !e.target.closest('.grimoire-actions')) {
+      if (!e.target.closest('button') && !e.target.closest('.grimoire-actions') && !e.target.closest('.reminder-row') && !e.target.closest('.night-sheet') && !e.target.closest('summary')) {
         this.toggleGrimoireVisibility();
       }
     });
@@ -499,6 +531,24 @@ class ClockTowerApp {
     // Role set selector in settings (host only)
     document.getElementById('role-set-select')?.addEventListener('change', (e) => {
       this.changeRoleSet(e.target.value);
+    });
+
+    document.getElementById('customize-script-btn')?.addEventListener('click', () => {
+      this.openScenarioBuilder();
+    });
+    document.getElementById('cancel-scenario-btn')?.addEventListener('click', () => {
+      this.closeScenarioBuilder();
+    });
+    document.getElementById('apply-scenario-btn')?.addEventListener('click', () => {
+      this.applyScenario();
+    });
+    document.getElementById('scenario-import-btn')?.addEventListener('click', () => {
+      this.importScenarioText();
+    });
+    document.getElementById('godfather-choice')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.choice-btn');
+      if (!btn) return;
+      this.setGodfatherChoice(btn.dataset.choice);
     });
     
     // Role set selector in almanac (main menu only, when not in room)
@@ -597,13 +647,17 @@ class ClockTowerApp {
     
     for (const category of categories) {
       const container = document.getElementById(`roles-${category}`);
-      if (!container || !this.allRoles[category]) continue;
+      if (!container) continue;
+      const roles = this.allRoles[category] || [];
+      if (roles.length === 0) {
+        container.innerHTML = '<div class="role-empty">None on this script</div>';
+        continue;
+      }
       
-      container.innerHTML = this.allRoles[category].map(role => {
-        const isSelected = this.selectedRoles.some(r => r.name === role.name);
-        const isDisabled = role.name === 'Drunk';
+      container.innerHTML = roles.map(role => {
+        const isSelected = this.selectedRoles.some(r => r.id === role.id || r.name === role.name);
         return `
-          <div class="role-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" data-role="${this.escapeHtml(role.name)}" data-category="${category}">
+          <div class="role-item ${isSelected ? 'selected' : ''}" data-role-id="${this.escapeHtml(role.id)}" data-category="${category}">
             <div class="role-checkbox"></div>
             <div class="role-details">
               <div class="role-name">${this.escapeHtml(role.name)}</div>
@@ -616,8 +670,7 @@ class ClockTowerApp {
       // Add click handlers
       container.querySelectorAll('.role-item').forEach(item => {
         item.addEventListener('click', () => {
-          if (item.classList.contains('disabled')) return;
-          this.toggleRole(item.dataset.role, item.dataset.category);
+          this.toggleRole(item.dataset.roleId, item.dataset.category);
         });
       });
     }
@@ -625,17 +678,15 @@ class ClockTowerApp {
     this.updateRoleSelectionUI();
   }
   
-  toggleRole(roleName, category) {
+  toggleRole(roleId, category) {
     if (!this.player.isHost || !this.room) return;
     
-    const existingIndex = this.selectedRoles.findIndex(r => r.name === roleName);
+    const existingIndex = this.selectedRoles.findIndex(r => r.id === roleId);
     
     if (existingIndex >= 0) {
-      // Remove role
       this.selectedRoles.splice(existingIndex, 1);
     } else {
-      // Add role
-      const role = this.allRoles[category].find(r => r.name === roleName);
+      const role = (this.allRoles[category] || []).find(r => r.id === roleId);
       if (role) {
         this.selectedRoles.push({ ...role, category });
       }
@@ -649,11 +700,15 @@ class ClockTowerApp {
     if (!this.player.isHost || !this.room) return;
     
     try {
-      await fetch(`/api/room/${this.room.code}/selected-roles`, {
+      const response = await fetch(`/api/room/${this.room.code}/selected-roles`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ selectedRoles: this.selectedRoles })
       });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.bag) this.applyBagCheck(data.bag);
+      }
     } catch (error) {
       console.error('Failed to save selected roles:', error);
     }
@@ -682,7 +737,9 @@ class ClockTowerApp {
     const playerCount = this.room && this.room.hostId 
       ? this.roomPlayers.filter(p => p.id !== this.room.hostId).length 
       : this.roomPlayers.length;
-    const distribution = this.getRoleDistribution(playerCount);
+    const distribution = this.bagCheck
+      ? this.bagCheck.expected
+      : this.getRoleDistribution(playerCount);
     
     // Update category counts and reference numbers
     for (const category of categories) {
@@ -726,7 +783,7 @@ class ClockTowerApp {
       const container = document.getElementById(`roles-${category}`);
       if (container) {
         container.querySelectorAll('.role-item').forEach(item => {
-          const isSelected = this.selectedRoles.some(r => r.name === item.dataset.role);
+          const isSelected = this.selectedRoles.some(r => r.id === item.dataset.roleId);
           item.classList.toggle('selected', isSelected);
         });
       }
@@ -746,7 +803,8 @@ class ClockTowerApp {
       
       // Show match/mismatch status
       if (settingsSummary) {
-        if (this.selectedRoles.length === playerCount && playerCount > 0) {
+        const bagOk = this.bagCheck ? this.bagCheck.ok : (this.selectedRoles.length === playerCount && playerCount > 0);
+        if (bagOk) {
           settingsSummary.classList.add('matched');
           settingsSummary.classList.remove('mismatched');
         } else if (this.selectedRoles.length > 0 || playerCount > 0) {
@@ -757,6 +815,72 @@ class ClockTowerApp {
         }
       }
     }
+
+    this.renderBagNotes();
+    this.renderNightPreview();
+  }
+
+  applyBagCheck(bag) {
+    this.bagCheck = bag;
+    this.updateRoleSelectionUI();
+  }
+
+  renderBagNotes() {
+    const notesEl = document.getElementById('bag-notes');
+    const choiceEl = document.getElementById('godfather-choice');
+    if (choiceEl) {
+      const showChoice = !!(this.bagCheck && this.bagCheck.needsGodfatherChoice);
+      choiceEl.classList.toggle('hidden', !showChoice);
+      const choice = (this.bagCheck && this.bagCheck.godfatherChoice) || 'plus';
+      choiceEl.querySelectorAll('.choice-btn').forEach(btn => {
+        btn.classList.toggle('selected', btn.dataset.choice === choice);
+      });
+    }
+    if (!notesEl) return;
+    if (!this.bagCheck) {
+      notesEl.textContent = '';
+      notesEl.classList.remove('ok', 'bad');
+      return;
+    }
+    const lines = [];
+    if (this.bagCheck.summary) lines.push(this.bagCheck.summary);
+    for (const note of this.bagCheck.notes || []) lines.push(note);
+    for (const error of this.bagCheck.errors || []) lines.push(error);
+    notesEl.textContent = lines.join(' ');
+    notesEl.classList.toggle('ok', !!this.bagCheck.ok);
+    notesEl.classList.toggle('bad', !this.bagCheck.ok);
+  }
+
+  renderNightPreview() {
+    const body = document.getElementById('night-preview-body');
+    if (!body) return;
+    const sheet = this.bagCheck && this.bagCheck.nightSheet;
+    body.innerHTML = sheet ? this.nightSheetHtml(sheet) : '';
+  }
+
+  nightSheetHtml(sheet) {
+    const column = (title, steps) => {
+      const items = (steps || []).map(step => `
+        <li class="night-step">
+          <div class="step-name">${this.escapeHtml(step.name)}</div>
+          <div class="step-detail">${this.escapeHtml(step.detail)}</div>
+        </li>
+      `).join('');
+      return `<div><h4>${title}</h4><ol>${items || '<li class="night-step">Nobody wakes.</li>'}</ol></div>`;
+    };
+    const passive = (sheet.passive || []).map(step => `
+      <li class="night-step">
+        <div class="step-name">${this.escapeHtml(step.name)}</div>
+        <div class="step-detail">${this.escapeHtml(step.detail)}</div>
+      </li>
+    `).join('');
+    return `
+      <div class="night-columns">
+        ${column('First night', sheet.firstNight)}
+        ${column('Other nights', sheet.otherNights)}
+      </div>
+      ${passive ? `<h4>Does not wake</h4><ul>${passive}</ul>` : ''}
+    `;
   }
   
   updatePlayerPreview() {
@@ -1054,7 +1178,8 @@ class ClockTowerApp {
       this.room = data.room;
       this.roomPlayers = data.players;
       this.playerOrder = data.playerOrder || [];
-      this.selectedRoles = data.room.selectedRoles || [];
+      if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
+      if (data.bag) this.bagCheck = data.bag;
       
       // Update role set from room
       if (data.room.roleSet) {
@@ -1139,7 +1264,8 @@ class ClockTowerApp {
       this.room = data.room;
       this.roomPlayers = data.players;
       this.playerOrder = data.playerOrder || [];
-      this.selectedRoles = data.room.selectedRoles || [];
+      if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
+      if (data.bag) this.bagCheck = data.bag;
       
       // Update role set if provided
       if (data.room.roleSet) {
@@ -1175,6 +1301,8 @@ class ClockTowerApp {
       const response = await fetch('/api/my-role');
       const data = await response.json();
       this.myRole = data.role;
+      this.myBluffs = data.bluffs || null;
+      this.myLunatic = data.lunatic || null;
       this.updateRoleDisplay();
     } catch (error) {
       console.error('Failed to fetch role:', error);
@@ -1192,6 +1320,10 @@ class ClockTowerApp {
       }
       const data = await response.json();
       this.grimoireData = data.players;
+      this.bluffs = data.bluffs || [];
+      this.lunaticBluffs = data.lunaticBluffs || [];
+      this.nightSheet = data.nightSheet || null;
+      this.reminderTokens = data.reminderTokens || [];
       this.renderGrimoire();
     } catch (error) {
       console.error('Failed to fetch grimoire:', error);
@@ -1236,6 +1368,7 @@ class ClockTowerApp {
     const categoryEl = document.getElementById('my-role-category');
     const nameEl = document.getElementById('my-role-name');
     const descEl = document.getElementById('my-role-description');
+    const extraEl = document.getElementById('my-role-extra');
 
     // Host doesn't get a role - they see the Grimoire instead
     if (this.player && this.player.isHost) {
@@ -1249,6 +1382,17 @@ class ClockTowerApp {
       categoryEl.className = `role-category ${this.myRole.category}`;
       nameEl.textContent = this.myRole.name;
       descEl.textContent = this.myRole.description;
+      if (extraEl) {
+        const bits = [];
+        if (this.myBluffs && this.myBluffs.length) {
+          bits.push(`Bluffs: ${this.myBluffs.map(role => role.name).join(', ')}`);
+        }
+        if (this.myLunatic) {
+          bits.push(`Lunatic: ${this.myLunatic.emoji || ''} ${this.myLunatic.username || 'Unknown'}`.trim());
+        }
+        extraEl.textContent = bits.join(' · ');
+        extraEl.classList.toggle('hidden', bits.length === 0);
+      }
 
       // Apply hidden state if active
       if (this.isRoleCardHidden) {
@@ -1296,8 +1440,12 @@ class ClockTowerApp {
           </div>
           <div class="grimoire-role ${categoryClass}">
             ${role ? `
-              <span class="role-name">${this.escapeHtml(role.name)}${playerData.isDrunk ? ' 🍺' : ''}</span>
-              <span class="role-category-tag">${role.category}</span>
+              <div class="role-title">
+                <span class="role-name">${this.escapeHtml(role.name)}${playerData.isDrunk ? ' 🍺' : ''}</span>
+                <span class="role-category-tag">${role.category}</span>
+              </div>
+              ${playerData.mask ? `<span class="role-mask">thinks they are ${this.escapeHtml(playerData.mask.name)}</span>` : ''}
+              ${this.reminderHtml(playerData)}
             ` : '<span class="no-role">No role assigned</span>'}
           </div>
           <div class="grimoire-actions">
@@ -1354,6 +1502,93 @@ class ClockTowerApp {
         this.openChatWithPlayer(playerId);
       });
     });
+
+    grimoireList.querySelectorAll('.reminder-chip').forEach(chip => {
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const playerId = chip.closest('.grimoire-player').dataset.playerId;
+        this.setReminder(playerId, chip.dataset.reminder, true);
+      });
+    });
+
+    grimoireList.querySelectorAll('.reminder-select').forEach(select => {
+      select.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const playerId = select.closest('.grimoire-player').dataset.playerId;
+        if (!select.value) return;
+        this.setReminder(playerId, select.value, false);
+        select.value = '';
+      });
+    });
+
+    this.renderBluffs();
+    this.renderResolvedNightSheet();
+  }
+
+  reminderHtml(playerData) {
+    const tokens = this.reminderTokens || [];
+    if (!tokens.length && !(playerData.reminders || []).length) return '';
+    const chips = (playerData.reminders || []).map(token =>
+      `<button type="button" class="reminder-chip" data-reminder="${this.escapeHtml(token)}">${this.escapeHtml(token)}</button>`
+    ).join('');
+    const options = tokens.map(token => `<option value="${this.escapeHtml(token)}">${this.escapeHtml(token)}</option>`).join('');
+    return `
+      <div class="reminder-row">
+        ${chips}
+        ${options ? `<select class="reminder-select"><option value="">+ token</option>${options}</select>` : ''}
+      </div>
+    `;
+  }
+
+  renderBluffs() {
+    const strip = document.getElementById('bluff-strip');
+    if (!strip) return;
+    const lines = [];
+    if (this.bluffs && this.bluffs.length) {
+      lines.push(`Demon bluffs: ${this.bluffs.map(role => role.name).join(', ')}`);
+    }
+    if (this.lunaticBluffs && this.lunaticBluffs.length) {
+      lines.push(`Lunatic bluffs: ${this.lunaticBluffs.map(role => role.name).join(', ')}`);
+    }
+    strip.textContent = lines.join(' · ');
+    strip.classList.toggle('hidden', lines.length === 0);
+  }
+
+  renderResolvedNightSheet() {
+    const sheetEl = document.getElementById('night-sheet');
+    const body = document.getElementById('night-sheet-body');
+    if (!sheetEl || !body) return;
+    if (!this.nightSheet) {
+      sheetEl.classList.add('hidden');
+      body.innerHTML = '';
+      return;
+    }
+    sheetEl.classList.remove('hidden');
+    if (!this.nightSheetSeen) {
+      sheetEl.open = true;
+      this.nightSheetSeen = true;
+    }
+    body.innerHTML = this.nightSheetHtml(this.nightSheet);
+  }
+
+  async setReminder(targetPlayerId, reminder, remove) {
+    if (!this.player || !this.player.isHost || !this.room) return;
+    try {
+      const response = await fetch(`/api/room/${this.room.code}/reminders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetPlayerId, reminder, remove })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        this.showToast(error.error || 'Failed to update reminder', 'error');
+        return;
+      }
+      await this.fetchGrimoire();
+    } catch (error) {
+      console.error('Failed to update reminder:', error);
+    }
   }
   
   
@@ -1369,6 +1604,11 @@ class ClockTowerApp {
     
     if (this.selectedRoles.length !== playerCount) {
       this.showToast(`Select exactly ${playerCount} roles for ${playerCount} players`, 'error');
+      return;
+    }
+
+    if (this.bagCheck && !this.bagCheck.ok) {
+      this.showToast(this.bagCheck.errors[0] || 'This bag does not match the script', 'error');
       return;
     }
     
@@ -1740,9 +1980,17 @@ class ClockTowerApp {
     
     const lines = this.grimoireData.map(playerData => {
       const roleName = playerData.role ? playerData.role.name : 'No role';
+      const maskSuffix = playerData.mask ? ` (thinks they are ${playerData.mask.name})` : '';
       const drunkSuffix = playerData.isDrunk ? ' (drunk)' : '';
-      return `@${playerData.username} is [[${roleName}]]${drunkSuffix}`;
+      const reminderSuffix = (playerData.reminders || []).length ? ` [${playerData.reminders.join(', ')}]` : '';
+      return `@${playerData.username} is [[${roleName}]]${maskSuffix}${drunkSuffix}${reminderSuffix}`;
     });
+    if (this.bluffs && this.bluffs.length) {
+      lines.push(`Demon bluffs: ${this.bluffs.map(role => role.name).join(', ')}`);
+    }
+    if (this.lunaticBluffs && this.lunaticBluffs.length) {
+      lines.push(`Lunatic bluffs: ${this.lunaticBluffs.map(role => role.name).join(', ')}`);
+    }
     
     const text = lines.join('\n');
     
@@ -1866,9 +2114,13 @@ class ClockTowerApp {
     // Populate settings modal selector (host only)
     const settingsSelect = document.getElementById('role-set-select');
     if (settingsSelect) {
-      settingsSelect.innerHTML = this.allRoleSets.map(set => 
+      const editions = this.allRoleSets.map(set =>
         `<option value="${set.id}">${this.escapeHtml(set.name)}</option>`
       ).join('');
+      const custom = this.currentRoleSet === 'custom'
+        ? `<option value="custom">${this.escapeHtml(this.currentRoleSetName)}</option>`
+        : '';
+      settingsSelect.innerHTML = editions + custom;
       settingsSelect.value = this.currentRoleSet;
     }
     
@@ -1884,9 +2136,10 @@ class ClockTowerApp {
   
   async changeRoleSet(roleSetId) {
     if (!this.player.isHost || !this.room) {
-      this.showToast('Only the host can change the role set', 'error');
+      this.showToast('Only the host can change the script', 'error');
       return;
     }
+    if (roleSetId === 'custom') return;
     
     try {
       const response = await fetch(`/api/room/${this.room.code}/role-set`, {
@@ -1905,6 +2158,136 @@ class ClockTowerApp {
     }
   }
   
+  openScenarioBuilder() {
+    if (!this.catalog) {
+      this.showToast('Character catalog is still loading', 'error');
+      return;
+    }
+    const builder = document.getElementById('scenario-builder');
+    if (!builder) return;
+    builder.classList.remove('hidden');
+    const nameInput = document.getElementById('scenario-name');
+    if (nameInput && !nameInput.value) {
+      nameInput.value = this.currentRoleSet === 'custom' ? this.currentRoleSetName : '';
+    }
+    this.renderScenarioCatalog();
+  }
+
+  closeScenarioBuilder() {
+    document.getElementById('scenario-builder')?.classList.add('hidden');
+  }
+
+  scriptRoleIds() {
+    const ids = [];
+    for (const category of ['Townsfolk', 'Outsiders', 'Minions', 'Demons']) {
+      for (const role of this.allRoles[category] || []) ids.push(role.id);
+    }
+    return ids;
+  }
+
+  renderScenarioCatalog() {
+    const catalogEl = document.getElementById('scenario-catalog');
+    if (!catalogEl || !this.catalog) return;
+    const checked = new Set(this.scriptRoleIds());
+    catalogEl.innerHTML = (this.catalog.editions || []).map(edition => {
+      const teams = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'].map(team => {
+        const roles = (edition.roles[team] || []).map(role => `
+          <label class="scenario-role">
+            <input type="checkbox" value="${this.escapeHtml(role.id)}" ${checked.has(role.id) ? 'checked' : ''}>
+            <span>${this.escapeHtml(role.name)}</span>
+          </label>
+        `).join('');
+        return `<div class="scenario-team">${team}</div>${roles}`;
+      }).join('');
+      return `<div class="scenario-edition"><strong>${this.escapeHtml(edition.name)}</strong>${teams}</div>`;
+    }).join('');
+  }
+
+  async importScenarioText() {
+    const text = document.getElementById('scenario-import')?.value || '';
+    try {
+      const response = await fetch('/api/scenario/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        this.showToast(data.error || 'Could not read that script', 'error');
+        return;
+      }
+      const nameInput = document.getElementById('scenario-name');
+      if (nameInput && data.name) nameInput.value = data.name;
+      const wanted = new Set(data.roleIds || []);
+      document.querySelectorAll('#scenario-catalog input[type="checkbox"]').forEach(box => {
+        box.checked = wanted.has(box.value);
+      });
+      if (data.missing && data.missing.length) {
+        this.showToast(`Skipped: ${data.missing.slice(0, 4).join(', ')}`, 'info');
+      }
+    } catch (error) {
+      console.error('Failed to parse scenario:', error);
+      this.showToast('Could not read that script', 'error');
+    }
+  }
+
+  async applyScenario() {
+    if (!this.player || !this.player.isHost || !this.room) return;
+    const roleIds = [...document.querySelectorAll('#scenario-catalog input:checked')].map(box => box.value);
+    const name = document.getElementById('scenario-name')?.value.trim() || 'Custom scenario';
+    if (!roleIds.length) {
+      this.showToast('Tick at least one character', 'error');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/room/${this.room.code}/scenario`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, roleIds })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        this.showToast(data.error || 'Failed to save scenario', 'error');
+        return;
+      }
+      if (data.room) {
+        this.room = data.room;
+        this.currentRoleSet = data.room.roleSet;
+        this.currentRoleSetName = data.room.roleSetName;
+        if (Array.isArray(data.room.selectedRoles)) this.selectedRoles = data.room.selectedRoles;
+      }
+      if (data.roleSetRoles) this.allRoles = data.roleSetRoles;
+      if (data.bag) this.bagCheck = data.bag;
+      this.populateRoleSetSelectors();
+      this.updateRoleSetUI();
+      this.renderRoleSelection();
+      this.renderAlmanac();
+      this.closeScenarioBuilder();
+    } catch (error) {
+      console.error('Failed to save scenario:', error);
+      this.showToast('Failed to save scenario', 'error');
+    }
+  }
+
+  async setGodfatherChoice(choice) {
+    if (!this.player || !this.player.isHost || !this.room) return;
+    try {
+      const response = await fetch(`/api/room/${this.room.code}/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ godfatherChoice: choice })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        this.showToast(data.error || 'Failed to update setup', 'error');
+        return;
+      }
+      if (data.bag) this.applyBagCheck(data.bag);
+    } catch (error) {
+      console.error('Failed to update setup:', error);
+    }
+  }
+
   async changeAlmanacRoleSet(roleSetId) {
     // This is only used on the main menu (when not in a room)
     // Just fetch and display the roles locally

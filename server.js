@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
+const setup = require('./lib/setup.cjs');
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +69,26 @@ for (const file of roleFiles) {
 const defaultRoleSet = 'trouble_brewing';
 const roles = roleSets[defaultRoleSet]?.roles || {};
 
+function flattenRoles(grouped) {
+  const list = [];
+  for (const category of setup.CATEGORIES) {
+    for (const role of grouped[category] || []) {
+      list.push({ ...role, category });
+    }
+  }
+  return list;
+}
+
+const catalog = [];
+const catalogById = new Map();
+for (const set of Object.values(roleSets)) {
+  for (const role of flattenRoles(set.roles)) {
+    if (catalogById.has(role.id)) continue;
+    catalog.push(role);
+    catalogById.set(role.id, role);
+  }
+}
+
 // Load version from package.json
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'));
 const version = packageJson.version;
@@ -80,6 +101,131 @@ const deadPlayers = new Map(); // roomCode -> Set of dead player IDs
 const drunkPlayers = new Map(); // roomCode -> Set of drunk player IDs (host reminder only)
 const playerOrder = new Map(); // roomCode -> Array of player IDs in circle order
 const chatMessages = new Map(); // roomCode -> Array of chat messages
+const seatReminders = new Map(); // roomCode -> Map(playerId -> reminder names)
+const socketsByPlayer = new Map(); // playerId -> Set of socket ids
+
+function emitToPlayer(playerId, event, payload) {
+  const ids = socketsByPlayer.get(playerId);
+  if (!ids) return;
+  for (const socketId of ids) io.to(socketId).emit(event, payload);
+}
+
+function scenarioName(room) {
+  if (room.roleSet === 'custom' && room.scenario && room.scenario.name) return room.scenario.name;
+  const set = roleSets[room.roleSet] || roleSets[defaultRoleSet];
+  return set.name;
+}
+
+function scriptList(room) {
+  if (room.roleSet === 'custom' && room.scenario) {
+    return room.scenario.roleIds.map(id => catalogById.get(id)).filter(Boolean);
+  }
+  const set = roleSets[room.roleSet] || roleSets[defaultRoleSet];
+  return flattenRoles(set.roles);
+}
+
+function nonHostIds(room) {
+  return room.players.filter(id => id !== room.hostId);
+}
+
+function bagState(room) {
+  const bag = room.selectedRoles || [];
+  const check = setup.validateBag({
+    playerCount: nonHostIds(room).length,
+    script: scriptList(room),
+    bag,
+    godfatherChoice: room.godfatherChoice || 'plus'
+  });
+  return {
+    ...check,
+    godfatherChoice: room.godfatherChoice || 'plus',
+    nightSheet: setup.previewNightSheet(bag)
+  };
+}
+
+function viewRoom(room, requesterId) {
+  const view = {
+    code: room.code,
+    hostId: room.hostId,
+    players: room.players,
+    createdAt: room.createdAt,
+    rolesAssigned: !!room.rolesAssigned,
+    roleSet: room.roleSet,
+    roleSetName: scenarioName(room)
+  };
+  if (requesterId === room.hostId) {
+    view.selectedRoles = room.selectedRoles || [];
+    view.godfatherChoice = room.godfatherChoice || 'plus';
+  }
+  return view;
+}
+
+function roomResponse(room, requesterId) {
+  const isHost = requesterId === room.hostId;
+  return {
+    room: viewRoom(room, requesterId),
+    roleSetRoles: setup.groupByCategory(scriptList(room)),
+    bag: isHost ? bagState(room) : null
+  };
+}
+
+function clearDeal(code) {
+  const room = rooms.get(code);
+  if (!room) return;
+  for (const pid of room.players) playerRoles.delete(pid);
+  deadPlayers.delete(code);
+  drunkPlayers.delete(code);
+  seatReminders.delete(code);
+  room.rolesAssigned = false;
+  room.bluffs = [];
+  room.lunaticBluffs = [];
+  rooms.set(code, room);
+}
+
+function resolveBag(inputRoles, script) {
+  const resolved = [];
+  const seen = new Set();
+  for (const input of inputRoles || []) {
+    if (!input) continue;
+    const role = (input.id && script.find(entry => entry.id === input.id))
+      || (input.name && script.find(entry => entry.name === input.name));
+    if (!role || seen.has(role.id)) continue;
+    seen.add(role.id);
+    resolved.push(role);
+  }
+  return resolved;
+}
+
+function dealtNightSheet(code) {
+  const room = rooms.get(code);
+  if (!room) return setup.previewNightSheet([]);
+  const assignments = [];
+  for (const pid of nonHostIds(room)) {
+    const role = playerRoles.get(pid);
+    if (!role) continue;
+    const player = players.get(pid);
+    assignments.push({
+      role,
+      mask: role.mask || null,
+      playerName: player ? (player.username || 'Unknown') : 'Unknown'
+    });
+  }
+  return setup.nightSheet(assignments, {
+    bluffs: room.bluffs || [],
+    lunaticBluffs: room.lunaticBluffs || []
+  });
+}
+
+function findLunatic(room) {
+  for (const pid of room.players) {
+    const role = playerRoles.get(pid);
+    if (role && role.id === 'lunatic') {
+      const player = players.get(pid);
+      return player ? { username: player.username, emoji: player.emoji } : null;
+    }
+  }
+  return null;
+}
 
 // Generate a random 4-letter room code
 function generateRoomCode() {
@@ -197,9 +343,13 @@ app.post('/api/room/create', (req, res) => {
     hostId: playerId,
     players: [playerId],
     createdAt: Date.now(),
-    selectedRoles: [], // Array of { name, description, category }
+    selectedRoles: [], // Characters in the bag tonight
     rolesAssigned: false,
-    roleSet: defaultRoleSet // Default to trouble brewing
+    roleSet: defaultRoleSet,
+    godfatherChoice: 'plus',
+    bluffs: [],
+    lunaticBluffs: [],
+    scenario: null
   };
   
   rooms.set(roomCode, room);
@@ -207,7 +357,7 @@ app.post('/api/room/create', (req, res) => {
   player.isHost = true;
   players.set(playerId, player);
   
-  res.json({ room, player });
+  res.json({ ...roomResponse(room, playerId), player });
 });
 
 // API: Join room
@@ -253,7 +403,7 @@ app.post('/api/room/join', (req, res) => {
   // Notify other players
   io.to(code).emit('playerJoined', player);
   
-  res.json({ room, player });
+  res.json({ ...roomResponse(room, playerId), player });
 });
 
 // API: Leave room
@@ -304,16 +454,10 @@ app.get('/api/room/:code', (req, res) => {
     })
     .filter(p => p);
   
-  // Include role set information
-  const roleSetInfo = roleSets[room.roleSet] || roleSets[defaultRoleSet];
-  res.json({ 
-    room: {
-      ...room,
-      roleSetName: roleSetInfo?.name
-    }, 
-    players: roomPlayers, 
-    playerOrder: finalOrder,
-    roleSetRoles: roleSetInfo?.roles
+  res.json({
+    ...roomResponse(room, req.cookies.playerId),
+    players: roomPlayers,
+    playerOrder: finalOrder
   });
 });
 
@@ -338,6 +482,23 @@ app.get('/api/roles/:setId', (req, res) => {
 // API: Get available roles (defaults to trouble brewing for backwards compatibility)
 app.get('/api/roles', (req, res) => {
   res.json(roles);
+});
+
+// API: Full catalog for custom scenarios
+app.get('/api/catalog', (req, res) => {
+  const editions = Object.values(roleSets).map(set => ({
+    id: set.id,
+    name: set.name,
+    roles: set.roles
+  }));
+  res.json({ editions });
+});
+
+// API: Resolve a pasted script into catalog ids
+app.post('/api/scenario/parse', (req, res) => {
+  const result = setup.parseScenarioImport(req.body && req.body.text, catalog);
+  if (result.error) return res.status(400).json(result);
+  res.json(result);
 });
 
 // API: Get version
@@ -408,21 +569,26 @@ app.post('/api/room/:code/role-set', (req, res) => {
     return res.status(400).json({ error: 'Invalid role set' });
   }
   
+  const wasAssigned = room.rolesAssigned;
   room.roleSet = roleSet;
-  room.selectedRoles = []; // Clear selected roles when changing set
+  room.scenario = null;
+  room.selectedRoles = [];
+  if (wasAssigned) {
+    clearDeal(code);
+    io.to(code).emit('rolesReset');
+  }
   rooms.set(code, room);
   
-  // Notify all players about the role set change
-  io.to(code).emit('roleSetChanged', { 
+  const grouped = setup.groupByCategory(scriptList(room));
+  io.to(code).emit('roleSetChanged', {
     roleSet,
     roleSetName: roleSets[roleSet].name,
-    roles: roleSets[roleSet].roles
+    roles: grouped
   });
+  emitToPlayer(room.hostId, 'selectedRolesUpdated', []);
+  emitToPlayer(room.hostId, 'bagUpdated', bagState(room));
   
-  // Also notify about cleared selected roles
-  io.to(code).emit('selectedRolesUpdated', []);
-  
-  res.json({ roleSet, roleSetName: roleSets[roleSet].name });
+  res.json({ roleSet, roleSetName: roleSets[roleSet].name, bag: bagState(room) });
 });
 
 // API: Update selected roles (host only)
@@ -445,30 +611,16 @@ app.post('/api/room/:code/selected-roles', (req, res) => {
     return res.status(403).json({ error: 'Only the host can change settings' });
   }
   
-  // Validate selected roles against the room's role set
-  const validRoles = [];
-  const validCategories = ['Townsfolk', 'Outsiders', 'Minions', 'Demons'];
-  const roomRoles = roleSets[room.roleSet]?.roles || roles;
-  
-  for (const role of selectedRoles) {
-    // Check if role exists in the room's role set
-    for (const cat of validCategories) {
-      if (!roomRoles[cat]) continue;
-      const foundRole = roomRoles[cat].find(r => r.name === role.name);
-      if (foundRole) {
-        validRoles.push({ ...foundRole, category: cat });
-        break;
-      }
-    }
-  }
+  const validRoles = resolveBag(selectedRoles, scriptList(room));
   
   room.selectedRoles = validRoles;
   rooms.set(code, room);
   
-  // Notify all players
-  io.to(code).emit('selectedRolesUpdated', room.selectedRoles);
+  const bag = bagState(room);
+  emitToPlayer(room.hostId, 'selectedRolesUpdated', room.selectedRoles);
+  emitToPlayer(room.hostId, 'bagUpdated', bag);
   
-  res.json({ selectedRoles: room.selectedRoles });
+  res.json({ selectedRoles: room.selectedRoles, bag });
 });
 
 // API: Assign roles (host only)
@@ -490,51 +642,39 @@ app.post('/api/room/:code/assign-roles', (req, res) => {
     return res.status(403).json({ error: 'Only the host can assign roles' });
   }
   
-  const { selectedRoles } = room;
+  const eligiblePlayers = nonHostIds(room);
+  const result = setup.dealRoles({
+    playerIds: eligiblePlayers,
+    script: scriptList(room),
+    bag: room.selectedRoles || [],
+    catalog,
+    godfatherChoice: room.godfatherChoice || 'plus'
+  });
   
-  if (!selectedRoles || selectedRoles.length === 0) {
-    return res.status(400).json({ error: 'No roles selected' });
+  if (!result.ok) {
+    return res.status(400).json({ error: result.errors.join(' '), errors: result.errors });
   }
   
-  // Exclude host from players who receive roles
-  const eligiblePlayers = room.players.filter(pid => pid !== room.hostId);
-  
-  if (eligiblePlayers.length !== selectedRoles.length) {
-    return res.status(400).json({ 
-      error: `Role count must match player count. You have ${eligiblePlayers.length} players but ${selectedRoles.length} roles selected.` 
+  for (const pid of room.players) playerRoles.delete(pid);
+  for (const assignment of result.assignments) {
+    playerRoles.set(assignment.playerId, {
+      ...assignment.role,
+      mask: assignment.mask ? { ...assignment.mask } : null
     });
   }
   
-  // Clear previous role assignments for this room's players
-  for (const pid of room.players) {
-    playerRoles.delete(pid);
-  }
-  
-  // Shuffle eligible players (excluding host)
-  const shuffledPlayers = [...eligiblePlayers].sort(() => Math.random() - 0.5);
-  
-  // Shuffle selected roles
-  const shuffledRoles = [...selectedRoles].sort(() => Math.random() - 0.5);
-  
-  // Assign roles to players (1:1 mapping, everyone gets a role)
-  for (let i = 0; i < shuffledRoles.length; i++) {
-    const pid = shuffledPlayers[i];
-    playerRoles.set(pid, shuffledRoles[i]);
-  }
-  
   room.rolesAssigned = true;
+  room.bluffs = result.bluffs;
+  room.lunaticBluffs = result.lunaticBluffs;
+  seatReminders.set(code, new Map());
   rooms.set(code, room);
   
-  // Notify each player of their own role only
   for (const pid of eligiblePlayers) {
-    const role = playerRoles.get(pid);
     io.to(code).emit('roleAssigned', { playerId: pid, hasRole: true });
   }
-  
-  // Send individual role to each connected socket
   io.to(code).emit('rolesDistributed');
   
-  res.json({ success: true, totalAssigned: shuffledRoles.length });
+  res.json({ success: true, totalAssigned: result.assignments.length });
 });
 
 // API: Get my role
@@ -551,7 +691,17 @@ app.get('/api/my-role', (req, res) => {
     return res.json({ role: null });
   }
   
-  res.json({ role });
+  const player = players.get(playerId);
+  const room = player && player.roomCode ? rooms.get(player.roomCode) : null;
+  const body = { role: role.mask ? setup.card(role.mask) : setup.card(role) };
+  if (room && role.id === 'lunatic') {
+    body.bluffs = (room.lunaticBluffs || []).map(setup.card);
+  } else if (room && role.category === 'Demons') {
+    body.bluffs = (room.bluffs || []).map(setup.card);
+    body.lunatic = findLunatic(room);
+  }
+  
+  res.json(body);
 });
 
 // API: Get all player roles (host/Grimoire view only)
@@ -577,6 +727,7 @@ app.get('/api/room/:code/grimoire', (req, res) => {
   // Get all players (excluding host) with their roles, in circle order
   const roomDeadPlayers = deadPlayers.get(code) || new Set();
   const roomDrunkPlayers = drunkPlayers.get(code) || new Set();
+  const reminderMap = seatReminders.get(code) || new Map();
   const orderedPlayerIds = playerOrder.get(code) || room.players;
   
   // Filter to only include players still in the room (excluding host)
@@ -594,13 +745,22 @@ app.get('/api/room/:code/grimoire', (req, res) => {
         playerId: pid,
         username: player ? player.username : 'Unknown',
         emoji: player ? player.emoji : '❓',
-        role: role || null,
+        role: role ? setup.card(role) : null,
+        mask: role && role.mask ? setup.card(role.mask) : null,
+        reminders: reminderMap.get(pid) || [],
         isDead: roomDeadPlayers.has(pid),
         isDrunk: roomDrunkPlayers.has(pid)
       };
     });
   
-  res.json({ players: grimoireData, rolesAssigned: room.rolesAssigned });
+  res.json({
+    players: grimoireData,
+    rolesAssigned: room.rolesAssigned,
+    bluffs: (room.bluffs || []).map(setup.card),
+    lunaticBluffs: (room.lunaticBluffs || []).map(setup.card),
+    nightSheet: dealtNightSheet(code),
+    reminderTokens: setup.reminderTokens(room.selectedRoles || [])
+  });
 });
 
 // API: Reset roles (host only)
@@ -622,26 +782,140 @@ app.post('/api/room/:code/reset-roles', (req, res) => {
     return res.status(403).json({ error: 'Only the host can reset roles' });
   }
   
-  // Clear role assignments
-  for (const pid of room.players) {
-    playerRoles.delete(pid);
-  }
-  
-  // Clear dead players
-  deadPlayers.delete(code);
-  
-  // Clear drunk players
-  drunkPlayers.delete(code);
-  
-  // Clear chat messages
+  clearDeal(code);
   chatMessages.delete(code);
-  
-  room.rolesAssigned = false;
-  rooms.set(code, room);
   
   io.to(code).emit('rolesReset');
   
   res.json({ success: true });
+});
+
+// API: Save a custom scenario (host only)
+app.post('/api/room/:code/scenario', (req, res) => {
+  const playerId = req.cookies.playerId;
+  const code = req.params.code.toUpperCase();
+  const { name, roleIds } = req.body || {};
+  
+  if (!playerId || !players.has(playerId)) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!rooms.has(code)) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  
+  const room = rooms.get(code);
+  if (room.hostId !== playerId) {
+    return res.status(403).json({ error: 'Only the host can change settings' });
+  }
+  if (!Array.isArray(roleIds) || roleIds.length === 0 || roleIds.length > 80) {
+    return res.status(400).json({ error: 'Choose at least one character for the scenario.' });
+  }
+  
+  const resolved = [];
+  const seen = new Set();
+  for (const id of roleIds) {
+    const role = catalogById.get(id);
+    if (!role || seen.has(role.id)) continue;
+    seen.add(role.id);
+    resolved.push(role.id);
+  }
+  if (!resolved.length) {
+    return res.status(400).json({ error: 'None of those characters are in the catalog.' });
+  }
+  
+  const wasAssigned = room.rolesAssigned;
+  room.roleSet = 'custom';
+  room.scenario = {
+    name: String(name || 'Custom scenario').replace(/[\r\n]/g, ' ').slice(0, 40),
+    roleIds: resolved
+  };
+  room.selectedRoles = [];
+  if (wasAssigned) {
+    clearDeal(code);
+    io.to(code).emit('rolesReset');
+  }
+  rooms.set(code, room);
+  
+  io.to(code).emit('roleSetChanged', {
+    roleSet: 'custom',
+    roleSetName: room.scenario.name,
+    roles: setup.groupByCategory(scriptList(room))
+  });
+  emitToPlayer(room.hostId, 'selectedRolesUpdated', []);
+  emitToPlayer(room.hostId, 'bagUpdated', bagState(room));
+  
+  res.json({ ...roomResponse(room, playerId) });
+});
+
+// API: Storyteller setup choices that change the bag (host only)
+app.post('/api/room/:code/setup', (req, res) => {
+  const playerId = req.cookies.playerId;
+  const code = req.params.code.toUpperCase();
+  const { godfatherChoice } = req.body || {};
+  
+  if (!playerId || !players.has(playerId)) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!rooms.has(code)) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  
+  const room = rooms.get(code);
+  if (room.hostId !== playerId) {
+    return res.status(403).json({ error: 'Only the host can change settings' });
+  }
+  if (godfatherChoice !== 'plus' && godfatherChoice !== 'minus') {
+    return res.status(400).json({ error: 'Godfather choice must be plus or minus.' });
+  }
+  
+  room.godfatherChoice = godfatherChoice;
+  rooms.set(code, room);
+  const bag = bagState(room);
+  emitToPlayer(room.hostId, 'bagUpdated', bag);
+  res.json({ bag });
+});
+
+// API: Place or remove a reminder token (host only)
+app.post('/api/room/:code/reminders', (req, res) => {
+  const playerId = req.cookies.playerId;
+  const code = req.params.code.toUpperCase();
+  const { targetPlayerId, reminder, remove } = req.body || {};
+  
+  if (!playerId || !players.has(playerId)) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!rooms.has(code)) {
+    return res.status(404).json({ error: 'Room not found' });
+  }
+  
+  const room = rooms.get(code);
+  if (room.hostId !== playerId) {
+    return res.status(403).json({ error: 'Only the host can change reminders' });
+  }
+  if (!room.rolesAssigned) {
+    return res.status(400).json({ error: 'Assign roles before marking reminders' });
+  }
+  if (!room.players.includes(targetPlayerId) || targetPlayerId === room.hostId) {
+    return res.status(400).json({ error: 'Player not in the grimoire' });
+  }
+  
+  const allowed = setup.reminderTokens(room.selectedRoles || []);
+  if (!allowed.includes(reminder)) {
+    return res.status(400).json({ error: 'Unknown reminder token' });
+  }
+  
+  if (!seatReminders.has(code)) seatReminders.set(code, new Map());
+  const map = seatReminders.get(code);
+  const current = map.get(targetPlayerId) || [];
+  if (remove) {
+    const index = current.lastIndexOf(reminder);
+    if (index >= 0) current.splice(index, 1);
+  } else if (current.length < 12) {
+    current.push(reminder);
+  }
+  map.set(targetPlayerId, current);
+  
+  res.json({ reminders: current });
 });
 
 // API: Mark player as dead (host only)
@@ -961,6 +1235,9 @@ function leaveRoom(playerId, roomCode) {
   // Clear player's role assignment when leaving
   playerRoles.delete(playerId);
 
+  const reminders = seatReminders.get(roomCode);
+  if (reminders) reminders.delete(playerId);
+
   if (room.players.length === 0) {
     // Delete empty room
     rooms.delete(roomCode);
@@ -968,6 +1245,7 @@ function leaveRoom(playerId, roomCode) {
     drunkPlayers.delete(roomCode);
     playerOrder.delete(roomCode);
     chatMessages.delete(roomCode);
+    seatReminders.delete(roomCode);
   } else {
     // Transfer host if needed
     if (room.hostId === playerId) {
@@ -995,7 +1273,12 @@ io.on('connection', (socket) => {
   
   socket.on('authenticate', (playerId) => {
     console.log('Socket authenticated:', socket.id, 'playerId:', playerId);
+    if (currentPlayerId && socketsByPlayer.has(currentPlayerId)) {
+      socketsByPlayer.get(currentPlayerId).delete(socket.id);
+    }
     currentPlayerId = playerId;
+    if (!socketsByPlayer.has(playerId)) socketsByPlayer.set(playerId, new Set());
+    socketsByPlayer.get(playerId).add(socket.id);
     const player = players.get(playerId);
     if (player && player.roomCode) {
       currentRoomCode = player.roomCode;
@@ -1037,8 +1320,9 @@ io.on('connection', (socket) => {
   });
   
   socket.on('disconnect', () => {
-    // Player remains in room even if socket disconnects
-    // They can reconnect with their cookie
+    if (currentPlayerId && socketsByPlayer.has(currentPlayerId)) {
+      socketsByPlayer.get(currentPlayerId).delete(socket.id);
+    }
   });
 });
 

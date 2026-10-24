@@ -111,6 +111,7 @@
             <h3 id="my-role-name">Your Role</h3>
           </div>
           <p class="role-description" id="my-role-description">Your role will appear here...</p>
+          <div id="my-role-extra" class="role-extra hidden"></div>
         </div>
       </div>
 
@@ -124,6 +125,11 @@
             <span class="grimoire-subtitle">Only you can see this</span>
             <button id="copy-grimoire-btn" class="copy-grimoire-btn" title="Copy all roles to clipboard">📋</button>
           </div>
+          <div id="bluff-strip" class="bluff-strip hidden"></div>
+          <details id="night-sheet" class="night-sheet hidden">
+            <summary>Night sheet</summary>
+            <div id="night-sheet-body"></div>
+          </details>
           <div class="grimoire-list" id="grimoire-list">
             <!-- Player roles will be inserted here -->
           </div>
@@ -163,14 +169,14 @@
       <div class="side-panel-body">
         <!-- Dropdown for main menu (not in room) -->
         <div class="almanac-role-set-selector" id="almanac-role-set-selector">
-          <label for="almanac-role-set-select">Role Set:</label>
+          <label for="almanac-role-set-select">Script:</label>
           <select id="almanac-role-set-select">
             <!-- Options populated by JS -->
           </select>
         </div>
         <!-- Display for in-room (no dropdown) -->
         <div class="almanac-role-set-display hidden" id="almanac-role-set-display">
-          <span class="role-set-label">Role Set:</span>
+          <span class="role-set-label">Script:</span>
           <span class="role-set-name" id="almanac-role-set-name">Trouble Brewing</span>
         </div>
         <p class="almanac-intro">Reference guide for all available roles</p>
@@ -239,10 +245,25 @@
       
       <div class="modal-body">
         <div class="role-set-selector">
-          <label for="role-set-select">Role Set:</label>
+          <label for="role-set-select">Script:</label>
           <select id="role-set-select">
             <!-- Options populated by JS -->
           </select>
+          <button type="button" id="customize-script-btn" class="btn-secondary btn-small">Customize</button>
+        </div>
+
+        <div id="scenario-builder" class="scenario-builder hidden">
+          <p class="scenario-help">Tick the characters on this script. The list below is who goes in the bag tonight.</p>
+          <label for="scenario-name">Scenario name</label>
+          <input type="text" id="scenario-name" maxlength="40" placeholder="Custom scenario">
+          <label for="scenario-import">Paste a script</label>
+          <textarea id="scenario-import" rows="3" placeholder='["washerwoman", "imp"] or one name per line'></textarea>
+          <button type="button" id="scenario-import-btn" class="btn-secondary btn-small">Load list</button>
+          <div id="scenario-catalog" class="scenario-catalog"></div>
+          <div class="btn-row">
+            <button type="button" id="apply-scenario-btn" class="btn-primary">Use this scenario</button>
+            <button type="button" id="cancel-scenario-btn" class="btn-secondary">Cancel</button>
+          </div>
         </div>
         
         <div class="role-selection">
@@ -301,6 +322,16 @@
       </div>
       
       <div class="modal-footer">
+        <div id="godfather-choice" class="godfather-choice hidden">
+          <span>Godfather</span>
+          <button type="button" class="choice-btn" data-choice="plus">+1 Outsider</button>
+          <button type="button" class="choice-btn" data-choice="minus">-1 Outsider</button>
+        </div>
+        <div id="bag-notes" class="bag-notes"></div>
+        <details id="night-preview" class="night-preview">
+          <summary>Night sheet for this bag</summary>
+          <div id="night-preview-body"></div>
+        </details>
         <div class="settings-summary">
           <span>Selected roles: <strong id="total-roles">0</strong></span>
           <span>Players: <strong id="total-players">0</strong></span>
