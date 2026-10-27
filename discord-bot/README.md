@@ -46,20 +46,20 @@ discord-bot/
 
 ## Setup
 
-1. Create an application + bot in the [Discord Developer Portal](https://discord.com/developers/applications).  
-2. Invite the bot with `applications.commands` and permission to send messages / embed links. Players must allow DMs from server members for role/ability messages.  
-3. Copy env and fill in credentials:
+**Trivial token walkthrough (with links):** see **[GETTING_TOKENS.md](./GETTING_TOKENS.md)** (~5 minutes).
+
+Short version:
 
 ```bash
 cd discord-bot
 cp .env.example .env
-# edit DISCORD_TOKEN, DISCORD_CLIENT_ID, optional DISCORD_GUILD_ID
+# fill DISCORD_TOKEN + DISCORD_CLIENT_ID (+ DISCORD_GUILD_ID for instant slash commands)
 npm install
 npm run deploy-commands
 npm start
 ```
 
-Use `DISCORD_GUILD_ID` while developing so slash commands appear immediately.
+Players must allow DMs from server members for role/ability messages.
 
 ## Scripts
 
