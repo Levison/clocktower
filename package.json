@@ -16,7 +16,10 @@
     "dev:watch": "parcel watch --target frontend",
     "build": "parcel build --target frontend",
     "restart": "lsof -ti:7105 | xargs kill -9 2>/dev/null || true && npm start",
-    "test:game": "node test-game.js"
+    "test:game": "node test-game.js",
+    "bot": "npm --prefix discord-bot start",
+    "bot:deploy": "npm --prefix discord-bot run deploy-commands",
+    "bot:test": "npm --prefix discord-bot test"
   },
   "dependencies": {
     "express": "^4.18.2",
