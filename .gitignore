@@ -19,6 +19,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Secrets
+.env
+discord-bot/.env
+
 # Local lobby process id written by lobby-host.sh
 .lobby.pid
 

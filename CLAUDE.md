@@ -45,17 +45,25 @@ This is a **Blood on the Clocktower** online lobby application built with Node.j
 ### File Structure
 ```
 server.js           # Main Express server and API endpoints
-public/
-├── app.js         # Frontend application logic
-├── index.html     # Single HTML page with all screens
-└── styles.css     # Gothic-themed CSS
-roles.json         # Role definitions by category
-animal_emojis.txt  # Random emoji assignment for players
+src/                # Parcel frontend (HTML/JS/CSS)
+roles/              # Role set JSON scripts
+discord-bot/        # Discord bot groundwork (storyteller panel + player DMs)
+animal_emojis.txt   # Random emoji assignment for players
+```
+
+### Discord bot (`discord-bot/`)
+Scaffold for running games in Discord: `/clocktower` slash commands, in-memory `GameSession`, storyteller component panel, and private player DMs for roles/actions. See `discord-bot/README.md`.
+
+```bash
+npm run bot:test      # unit tests (no token)
+npm run bot:deploy    # register slash commands (needs .env)
+npm run bot           # start the bot
 ```
 
 ## Testing
 
-No test framework is currently configured. Manual testing via the web interface.
+Web lobby: manual testing via the web interface (`npm run test:game` for Playwright multi-browser).  
+Discord bot session model: `npm run bot:test`.
 
 ## Dependencies
 

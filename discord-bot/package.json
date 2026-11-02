@@ -1,0 +1,19 @@
+{
+  "name": "clocktower-discord-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Discord bot groundwork for running Blood on the Clocktower with storyteller controls and private player DMs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "deploy-commands": "node src/deploy-commands.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^16.4.7"
+  }
+}
